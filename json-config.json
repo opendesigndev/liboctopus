@@ -1,0 +1,104 @@
+{
+    "inputs": [
+        "octopus/general.h",
+        "octopus/filter.h",
+        "octopus/fill.h",
+        "octopus/stroke.h",
+        "octopus/effect.h",
+        "octopus/shape.h",
+        "octopus/text.h",
+        "octopus/layer-change.h",
+        "octopus/override.h",
+        "octopus/layer.h",
+        "octopus/octopus.h",
+        "octopus-manifest/general.h",
+        "octopus-manifest/status.h",
+        "octopus-manifest/resource.h",
+        "octopus-manifest/asset.h",
+        "octopus-manifest/artifact.h",
+        "octopus-manifest/library.h",
+        "octopus-manifest/chunk.h",
+        "octopus-manifest/component.h",
+        "octopus-manifest/page.h",
+        "octopus-manifest/octopus-manifest.h"
+    ],
+    "includes": [
+        "<string>"
+    ],
+    "settings": {
+        "jsonIOMode": "NULL_TERMINATED_STRING",
+        "keyFormat": "ANY",
+        "enumFormat": "ANY",
+        "noThrow": true,
+        "verboseErrors": false,
+        "strictSyntaxCheck": true,
+        "checkMissingKeys": false,
+        "checkRepeatingKeys": false,
+        "ignoreExtraKeys": true,
+        "checkIntegerOverflow": true,
+        "nanPolicy": "MIXED_CASE_NAN_STRING_VALUE",
+        "infPolicy": "EXPONENT_OVERFLOW"
+    },
+    "parsers": [ {
+        "name": "octopus::Parser",
+        "types": [
+            "octopus::Octopus",
+            "octopus::Layer",
+            "octopus::LayerChange"
+        ],
+        "replacementIncludes": [
+            "octopus/octopus.h"
+        ],
+        "headerOutput": "octopus/parser.h",
+        "sourceOutput": "octopus/parser.cpp"
+    }, {
+        "name": "octopus::ManifestParser",
+        "types": [
+            "octopus::OctopusManifest"
+        ],
+        "replacementIncludes": [
+            "octopus-manifest/octopus-manifest.h"
+        ],
+        "headerOutput": "octopus-manifest/parser.h",
+        "sourceOutput": "octopus-manifest/parser.cpp"
+    } ],
+    "serializers": [ {
+        "name": "octopus::Serializer",
+        "types": [
+            "octopus::Octopus",
+            "octopus::Layer"
+        ],
+        "replacementIncludes": [
+            "octopus/octopus.h"
+        ],
+        "headerOutput": "octopus/serializer.h",
+        "sourceOutput": "octopus/serializer.cpp"
+    }, {
+        "name": "octopus::ManifestSerializer",
+        "types": [
+            "octopus::OctopusManifest"
+        ],
+        "replacementIncludes": [
+            "octopus-manifest/octopus-manifest.h"
+        ],
+        "headerOutput": "octopus-manifest/serializer.h",
+        "sourceOutput": "octopus-manifest/serializer.cpp"
+    } ],
+    "optionalContainerTypes": [ {
+        "name": "nonstd::optional<$T>",
+        "api": {
+            "clear": "$S.reset()",
+            "refInitialized": "($S = $T()).value()",
+            "hasValue": "$S.has_value()",
+            "getValue": "$S.value()"
+        }
+    }, {
+        "name": "nonstd::optional_ptr<$T>",
+        "api": {
+            "clear": "$S.reset()",
+            "refInitialized": "*($S = new $T())",
+            "hasValue": "$S.has_value()",
+            "getValue": "*$S"
+        }
+    } ]
+}
