@@ -2797,7 +2797,7 @@ Parser::ErrorType Parser::parseNonstdOptionalPtrOctopusLayer(nonstd::optional_pt
     skipWhitespace();
     if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
         value.reset();
-    else if (Error error = parseOctopusLayer(*(value = new octopus::Layer)))
+    else if (Error error = parseOctopusLayer(*(value = new octopus::Layer())))
         return error;
     return ErrorType::OK;
 }
