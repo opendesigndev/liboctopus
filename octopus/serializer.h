@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <nonstd/serialize_float.hpp>
 #include "octopus.h"
 
 namespace octopus {

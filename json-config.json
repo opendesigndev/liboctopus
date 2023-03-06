@@ -69,6 +69,7 @@
             "octopus::Layer"
         ],
         "replacementIncludes": [
+            "<nonstd/serialize_float.hpp>",
             "octopus/octopus.h"
         ],
         "headerOutput": "octopus/serializer.h",
@@ -79,6 +80,7 @@
             "octopus::OctopusManifest"
         ],
         "replacementIncludes": [
+            "<nonstd/serialize_float.hpp>",
             "octopus-manifest/octopus-manifest.h"
         ],
         "headerOutput": "octopus-manifest/serializer.h",
