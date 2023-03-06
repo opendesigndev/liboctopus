@@ -2217,6 +2217,10 @@ Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value)
         value = octopus::Effect::Type::OUTER_GLOW;
     else if (str == "INNER_GLOW")
         value = octopus::Effect::Type::INNER_GLOW;
+    else if (str == "GAUSSIAN_BLUR")
+        value = octopus::Effect::Type::GAUSSIAN_BLUR;
+    else if (str == "BOUNDED_BLUR")
+        value = octopus::Effect::Type::BOUNDED_BLUR;
     else if (str == "BLUR")
         value = octopus::Effect::Type::BLUR;
     else if (str == "OTHER")
@@ -2588,6 +2592,9 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
         } else if (key == "maskBasis") {
             if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
                 return error;
+        } else if (key == "maskChannels") {
+            if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
+                return error;
         } else if (key == "name") {
             if (Error error = parseNonstdOptionalStdString(value.name))
                 return error;
@@ -2599,6 +2606,9 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                 return error;
         } else if (key == "basis") {
             if (Error error = parseNonstdOptionalOctopusEffectBasis(value.basis))
+                return error;
+        } else if (key == "filters") {
+            if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
                 return error;
         } else if (key == "fills") {
             if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))

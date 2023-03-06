@@ -11,6 +11,10 @@ static bool validationError(const void *datapoint, const std::string &errorMessa
     return false;
 }
 
+static bool isBlur(Effect::Type effectType) {
+    return effectType == Effect::Type::GAUSSIAN_BLUR || effectType == Effect::Type::BOUNDED_BLUR || effectType == Effect::Type::BLUR;
+}
+
 bool validateLayerId(const std::string &layerId) {
     for (char c : layerId) {
         switch (c) {
@@ -156,11 +160,13 @@ bool validateEffect(const Layer &layer, const Effect &effect, std::string *error
             if (!validateColor(effect.glow->color))
                 return validationError(&effect.glow->color, "Glow effect of layer "+layer.id+" has invalid color value", errorMessagePtr, datapointPtr);
             break;
+        case Effect::Type::GAUSSIAN_BLUR:
+        case Effect::Type::BOUNDED_BLUR:
         case Effect::Type::BLUR:
             if (!effect.blur.has_value())
-                return validationError(&effect.blur, "BLUR effect of layer "+layer.id+" has no blur parameter", errorMessagePtr, datapointPtr);
+                return validationError(&effect.blur, "Blur effect of layer "+layer.id+" has no blur parameter", errorMessagePtr, datapointPtr);
             if (effect.blur.value() < 0)
-                return validationError(&effect.blur, "BLUR effect of layer "+layer.id+" has negative blur parameter", errorMessagePtr, datapointPtr);
+                return validationError(&effect.blur, "Blur effect of layer "+layer.id+" has negative blur parameter", errorMessagePtr, datapointPtr);
             if (effect.filters.has_value()) {
                 for (const Filter &filter : effect.filters.value()) {
                     if (!validateFilter(layer, filter, errorMessagePtr, datapointPtr))
@@ -168,7 +174,7 @@ bool validateEffect(const Layer &layer, const Effect &effect, std::string *error
                 }
             }
             if (layer.blendMode == BlendMode::PASS_THROUGH && effect.basis != EffectBasis::BACKGROUND)
-                return validationError(&effect, "Layer "+layer.id+" with PASS_THROUGH blendMode contains a non-background BLUR effect", errorMessagePtr, datapointPtr);
+                return validationError(&effect, "Layer "+layer.id+" with PASS_THROUGH blendMode contains a non-background blur effect", errorMessagePtr, datapointPtr);
             break;
         case Effect::Type::OTHER:
             break;
@@ -176,25 +182,25 @@ bool validateEffect(const Layer &layer, const Effect &effect, std::string *error
     switch (effect.basis) {
         case EffectBasis::BODY:
         case EffectBasis::BODY_AND_STROKES:
-            if (effect.type == Effect::Type::BLUR)
-                return validationError(&effect.basis, "Layer "+layer.id+" has BLUR effect with invalid basis", errorMessagePtr, datapointPtr);
+            if (isBlur(effect.type))
+                return validationError(&effect.basis, "Layer "+layer.id+" has blur effect with invalid basis", errorMessagePtr, datapointPtr);
             break;
         case EffectBasis::FILL:
             break;
         case EffectBasis::LAYER_AND_EFFECTS:
         case EffectBasis::BACKGROUND:
-            if (effect.type != Effect::Type::BLUR)
-                return validationError(&effect.basis, "Layer "+layer.id+" has effect with invalid basis - only BLUR effects may have LAYER_AND_EFFECTS or BACKGROUND basis", errorMessagePtr, datapointPtr);
+            if (!isBlur(effect.type))
+                return validationError(&effect.basis, "Layer "+layer.id+" has effect with invalid basis - only blur effects may have LAYER_AND_EFFECTS or BACKGROUND basis", errorMessagePtr, datapointPtr);
             break;
     }
-    if (effect.type != Effect::Type::BLUR && effect.filters.has_value())
-        return validationError(&effect.filters, "Effect of layer "+layer.id+" contains filters array but is not of BLUR type", errorMessagePtr, datapointPtr);
+    if (!isBlur(effect.type) && effect.filters.has_value())
+        return validationError(&effect.filters, "Effect of layer "+layer.id+" contains filters array but is not of a blur type", errorMessagePtr, datapointPtr);
     if (
         (effect.type != Effect::Type::OVERLAY && effect.overlay.has_value()) ||
         (effect.type != Effect::Type::STROKE && effect.stroke.has_value()) ||
         ((effect.type != Effect::Type::DROP_SHADOW && effect.type != Effect::Type::INNER_SHADOW) && effect.shadow.has_value()) ||
         ((effect.type != Effect::Type::OUTER_GLOW && effect.type != Effect::Type::INNER_GLOW) && effect.glow.has_value()) ||
-        (effect.type != Effect::Type::BLUR && (effect.blur.has_value() || effect.filters.has_value()))
+        (!isBlur(effect.type) && effect.blur.has_value())
     )
         return validationError(&effect, "Effect of layer "+layer.id+" contains data that does not match its type", errorMessagePtr, datapointPtr);
     return true;

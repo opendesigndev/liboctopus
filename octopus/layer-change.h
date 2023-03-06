@@ -50,10 +50,12 @@ struct LayerChange {
         nonstd::optional<std::array<double, 6> > transform;
         nonstd::optional<double> featureScale;
         nonstd::optional<MaskBasis> maskBasis;
+        nonstd::optional<std::array<double, 5> > maskChannels;
         nonstd::optional<std::string> name;
         nonstd::optional<std::string> componentId;
         nonstd::optional<std::vector<Effect> > effects;
         nonstd::optional<EffectBasis> basis;
+        nonstd::optional<std::vector<Filter> > filters;
 
         nonstd::optional<std::vector<Fill> > fills;
         nonstd::optional<std::vector<Stroke> > strokes;

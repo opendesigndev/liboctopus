@@ -1218,6 +1218,8 @@ Serializer::Error Serializer::serializeOctopusEffectType(octopus::Effect::Type c
         case octopus::Effect::Type::INNER_SHADOW: write("\"INNER_SHADOW\""); break;
         case octopus::Effect::Type::OUTER_GLOW: write("\"OUTER_GLOW\""); break;
         case octopus::Effect::Type::INNER_GLOW: write("\"INNER_GLOW\""); break;
+        case octopus::Effect::Type::GAUSSIAN_BLUR: write("\"GAUSSIAN_BLUR\""); break;
+        case octopus::Effect::Type::BOUNDED_BLUR: write("\"BOUNDED_BLUR\""); break;
         case octopus::Effect::Type::BLUR: write("\"BLUR\""); break;
         case octopus::Effect::Type::OTHER: write("\"OTHER\""); break;
         default:
@@ -1454,6 +1456,14 @@ Serializer::Error Serializer::serializeOctopusLayerChangeValues(octopus::LayerCh
             return error;
         prev = true;
     }
+    if (value.maskChannels.has_value()) {
+        if (prev)
+            write(',');
+        write("\"" "maskChannels" "\":");
+        if (Error error = serializeStdArrayDouble5(value.maskChannels.value()))
+            return error;
+        prev = true;
+    }
     if (value.name.has_value()) {
         if (prev)
             write(',');
@@ -1483,6 +1493,14 @@ Serializer::Error Serializer::serializeOctopusLayerChangeValues(octopus::LayerCh
             write(',');
         write("\"" "basis" "\":");
         if (Error error = serializeOctopusEffectBasis(value.basis.value()))
+            return error;
+        prev = true;
+    }
+    if (value.filters.has_value()) {
+        if (prev)
+            write(',');
+        write("\"" "filters" "\":");
+        if (Error error = serializeStdVectorOctopusFilter(value.filters.value()))
             return error;
         prev = true;
     }

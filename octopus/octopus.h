@@ -14,7 +14,7 @@
 #include "text.h"
 #include "layer.h"
 
-#define OCTOPUS_VERSION "3.0.1"
+#define OCTOPUS_VERSION "3.0.2"
 
 namespace octopus {
 

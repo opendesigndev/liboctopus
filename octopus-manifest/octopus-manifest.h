@@ -11,7 +11,7 @@
 #include "component.h"
 #include "page.h"
 
-#define OCTOPUS_MANIFEST_VERSION "3.0.1"
+#define OCTOPUS_MANIFEST_VERSION "3.0.2"
 
 namespace octopus {
 

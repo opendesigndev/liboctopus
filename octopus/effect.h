@@ -25,6 +25,8 @@ struct Effect {
         INNER_SHADOW,
         OUTER_GLOW,
         INNER_GLOW,
+        GAUSSIAN_BLUR,
+        BOUNDED_BLUR,
         BLUR,
         OTHER
     };
@@ -37,7 +39,7 @@ struct Effect {
     nonstd::optional<Shadow> shadow;
     nonstd::optional<Shadow> glow;
     nonstd::optional<double> blur;
-    nonstd::optional<std::vector<Filter> > filters; // for BLUR only
+    nonstd::optional<std::vector<Filter> > filters; // for blurs only
 };
 
 }
