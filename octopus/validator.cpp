@@ -149,17 +149,6 @@ bool validateEffect(const Layer &layer, const Effect &effect, std::string *error
             if (!validateColor(effect.shadow->color))
                 return validationError(&effect.shadow->color, "Shadow effect of layer "+layer.id+" has invalid color value", errorMessagePtr, datapointPtr);
             break;
-        case Effect::Type::OUTER_GLOW:
-        case Effect::Type::INNER_GLOW:
-            if (!effect.glow.has_value())
-                return validationError(&effect.glow, "Glow effect of layer "+layer.id+" has no glow object", errorMessagePtr, datapointPtr);
-            if (effect.glow->offset.x || effect.glow->offset.y)
-                return validationError(&effect.glow, "Glow effect of layer "+layer.id+" has offset", errorMessagePtr, datapointPtr);
-            if (effect.glow->blur < 0)
-                return validationError(&effect.glow->blur, "Glow effect of layer "+layer.id+" has negative blur", errorMessagePtr, datapointPtr);
-            if (!validateColor(effect.glow->color))
-                return validationError(&effect.glow->color, "Glow effect of layer "+layer.id+" has invalid color value", errorMessagePtr, datapointPtr);
-            break;
         case Effect::Type::GAUSSIAN_BLUR:
         case Effect::Type::BOUNDED_BLUR:
         case Effect::Type::BLUR:
@@ -199,7 +188,6 @@ bool validateEffect(const Layer &layer, const Effect &effect, std::string *error
         (effect.type != Effect::Type::OVERLAY && effect.overlay.has_value()) ||
         (effect.type != Effect::Type::STROKE && effect.stroke.has_value()) ||
         ((effect.type != Effect::Type::DROP_SHADOW && effect.type != Effect::Type::INNER_SHADOW) && effect.shadow.has_value()) ||
-        ((effect.type != Effect::Type::OUTER_GLOW && effect.type != Effect::Type::INNER_GLOW) && effect.glow.has_value()) ||
         (!isBlur(effect.type) && effect.blur.has_value())
     )
         return validationError(&effect, "Effect of layer "+layer.id+" contains data that does not match its type", errorMessagePtr, datapointPtr);

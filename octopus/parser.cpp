@@ -2213,10 +2213,6 @@ Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value)
         value = octopus::Effect::Type::DROP_SHADOW;
     else if (str == "INNER_SHADOW")
         value = octopus::Effect::Type::INNER_SHADOW;
-    else if (str == "OUTER_GLOW")
-        value = octopus::Effect::Type::OUTER_GLOW;
-    else if (str == "INNER_GLOW")
-        value = octopus::Effect::Type::INNER_GLOW;
     else if (str == "GAUSSIAN_BLUR")
         value = octopus::Effect::Type::GAUSSIAN_BLUR;
     else if (str == "BOUNDED_BLUR")
@@ -2395,9 +2391,6 @@ Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
                 return error;
         } else if (key == "shadow") {
             if (Error error = parseNonstdOptionalOctopusShadow(value.shadow))
-                return error;
-        } else if (key == "glow") {
-            if (Error error = parseNonstdOptionalOctopusShadow(value.glow))
                 return error;
         } else if (key == "blur") {
             if (Error error = parseNonstdOptionalDouble(value.blur))

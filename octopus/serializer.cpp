@@ -1216,8 +1216,6 @@ Serializer::Error Serializer::serializeOctopusEffectType(octopus::Effect::Type c
         case octopus::Effect::Type::STROKE: write("\"STROKE\""); break;
         case octopus::Effect::Type::DROP_SHADOW: write("\"DROP_SHADOW\""); break;
         case octopus::Effect::Type::INNER_SHADOW: write("\"INNER_SHADOW\""); break;
-        case octopus::Effect::Type::OUTER_GLOW: write("\"OUTER_GLOW\""); break;
-        case octopus::Effect::Type::INNER_GLOW: write("\"INNER_GLOW\""); break;
         case octopus::Effect::Type::GAUSSIAN_BLUR: write("\"GAUSSIAN_BLUR\""); break;
         case octopus::Effect::Type::BOUNDED_BLUR: write("\"BOUNDED_BLUR\""); break;
         case octopus::Effect::Type::BLUR: write("\"BLUR\""); break;
@@ -1309,11 +1307,6 @@ Serializer::Error Serializer::serializeOctopusEffect(octopus::Effect const &valu
     if (value.shadow.has_value()) {
         write(",\"" "shadow" "\":");
         if (Error error = serializeOctopusShadow(value.shadow.value()))
-            return error;
-    }
-    if (value.glow.has_value()) {
-        write(",\"" "glow" "\":");
-        if (Error error = serializeOctopusShadow(value.glow.value()))
             return error;
     }
     if (value.blur.has_value()) {

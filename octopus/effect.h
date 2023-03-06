@@ -23,8 +23,6 @@ struct Effect {
         STROKE,
         DROP_SHADOW,
         INNER_SHADOW,
-        OUTER_GLOW,
-        INNER_GLOW,
         GAUSSIAN_BLUR,
         BOUNDED_BLUR,
         BLUR,
@@ -37,7 +35,6 @@ struct Effect {
     nonstd::optional<Fill> overlay;
     nonstd::optional<Stroke> stroke;
     nonstd::optional<Shadow> shadow;
-    nonstd::optional<Shadow> glow;
     nonstd::optional<double> blur;
     nonstd::optional<std::vector<Filter> > filters; // for blurs only
 };
