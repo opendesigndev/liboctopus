@@ -102,6 +102,10 @@ Serializer::Error Serializer::serialize(std::string &jsonString, octopus::Layer 
     return Serializer(jsonString).serializeOctopusLayer(input);
 }
 
+Serializer::Error Serializer::serialize(std::string &jsonString, octopus::LayerChange const &input) {
+    return Serializer(jsonString).serializeOctopusLayerChange(input);
+}
+
 Serializer::Error Serializer::serializeOctopusOctopusType(octopus::Octopus::Type const &value) {
     switch (value) {
         case octopus::Octopus::Type::OCTOPUS_COMPONENT: write("\"OCTOPUS_COMPONENT\""); break;
@@ -113,7 +117,7 @@ Serializer::Error Serializer::serializeOctopusOctopusType(octopus::Octopus::Type
 
 Serializer::Error Serializer::serializeStdString(std::string const &value) {
     write('"');
-    for (char c : value) { writeEscaped(c); }
+    for (std::string::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { char c = *i; writeEscaped(c); }
     write('"');
     return Error::OK;
 }
@@ -254,7 +258,7 @@ Serializer::Error Serializer::serializeOctopusPathOp(octopus::Path::Op const &va
 Serializer::Error Serializer::serializeStdVectorOctopusPath(std::vector<octopus::Path> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Path const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusPath(elem)) return error; }
+    for (std::vector<octopus::Path>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Path const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusPath(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -279,7 +283,7 @@ Serializer::Error Serializer::serializeOctopusRectangle(octopus::Rectangle const
 Serializer::Error Serializer::serializeStdVectorDouble(std::vector<double> const &value) {
     bool prev = false;
     write('[');
-    for (double const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeDouble(elem)) return error; }
+    for (std::vector<double>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { double const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeDouble(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -401,7 +405,7 @@ Serializer::Error Serializer::serializeOctopusGradientColorStop(octopus::Gradien
 Serializer::Error Serializer::serializeStdVectorOctopusGradientColorStop(std::vector<octopus::Gradient::ColorStop> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Gradient::ColorStop const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusGradientColorStop(elem)) return error; }
+    for (std::vector<octopus::Gradient::ColorStop>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Gradient::ColorStop const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusGradientColorStop(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -563,7 +567,7 @@ Serializer::Error Serializer::serializeOctopusFilter(octopus::Filter const &valu
 Serializer::Error Serializer::serializeStdVectorOctopusFilter(std::vector<octopus::Filter> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Filter const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusFilter(elem)) return error; }
+    for (std::vector<octopus::Filter>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Filter const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusFilter(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -610,7 +614,7 @@ Serializer::Error Serializer::serializeOctopusFill(octopus::Fill const &value) {
 Serializer::Error Serializer::serializeStdVectorOctopusFill(std::vector<octopus::Fill> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Fill const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusFill(elem)) return error; }
+    for (std::vector<octopus::Fill>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Fill const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusFill(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -719,7 +723,7 @@ Serializer::Error Serializer::serializeOctopusShapeStroke(octopus::Shape::Stroke
 Serializer::Error Serializer::serializeStdVectorOctopusShapeStroke(std::vector<octopus::Shape::Stroke> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Shape::Stroke const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusShapeStroke(elem)) return error; }
+    for (std::vector<octopus::Shape::Stroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Shape::Stroke const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusShapeStroke(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -795,7 +799,7 @@ Serializer::Error Serializer::serializeOctopusOpenTypeFeature(octopus::OpenTypeF
 Serializer::Error Serializer::serializeStdVectorOctopusOpenTypeFeature(std::vector<octopus::OpenTypeFeature> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::OpenTypeFeature const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusOpenTypeFeature(elem)) return error; }
+    for (std::vector<octopus::OpenTypeFeature>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::OpenTypeFeature const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusOpenTypeFeature(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -885,7 +889,7 @@ Serializer::Error Serializer::serializeOctopusVectorStroke(octopus::VectorStroke
 Serializer::Error Serializer::serializeStdVectorOctopusVectorStroke(std::vector<octopus::VectorStroke> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::VectorStroke const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusVectorStroke(elem)) return error; }
+    for (std::vector<octopus::VectorStroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::VectorStroke const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusVectorStroke(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1005,7 +1009,7 @@ Serializer::Error Serializer::serializeOctopusStyleRangeRange(octopus::StyleRang
 Serializer::Error Serializer::serializeStdVectorOctopusStyleRangeRange(std::vector<octopus::StyleRange::Range> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::StyleRange::Range const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusStyleRangeRange(elem)) return error; }
+    for (std::vector<octopus::StyleRange::Range>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::StyleRange::Range const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusStyleRangeRange(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1024,7 +1028,7 @@ Serializer::Error Serializer::serializeOctopusStyleRange(octopus::StyleRange con
 Serializer::Error Serializer::serializeStdVectorOctopusStyleRange(std::vector<octopus::StyleRange> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::StyleRange const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusStyleRange(elem)) return error; }
+    for (std::vector<octopus::StyleRange>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::StyleRange const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusStyleRange(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1166,7 +1170,7 @@ Serializer::Error Serializer::serializeStdArrayDouble5(std::array<double, 5> con
 Serializer::Error Serializer::serializeStdListOctopusLayer(std::list<octopus::Layer> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Layer const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusLayer(elem)) return error; }
+    for (std::list<octopus::Layer>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Layer const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusLayer(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1174,7 +1178,7 @@ Serializer::Error Serializer::serializeStdListOctopusLayer(std::list<octopus::La
 Serializer::Error Serializer::serializeStdVectorStdString(std::vector<std::string> const &value) {
     bool prev = false;
     write('[');
-    for (std::string const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeStdString(elem)) return error; }
+    for (std::vector<std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeStdString(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1339,7 +1343,7 @@ Serializer::Error Serializer::serializeStdArrayDouble6(std::array<double, 6> con
 Serializer::Error Serializer::serializeStdVectorOctopusEffect(std::vector<octopus::Effect> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Effect const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusEffect(elem)) return error; }
+    for (std::vector<octopus::Effect>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Effect const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusEffect(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1347,7 +1351,7 @@ Serializer::Error Serializer::serializeStdVectorOctopusEffect(std::vector<octopu
 Serializer::Error Serializer::serializeStdVectorOctopusStroke(std::vector<octopus::Stroke> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Stroke const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusStroke(elem)) return error; }
+    for (std::vector<octopus::Stroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Stroke const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusStroke(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1584,7 +1588,7 @@ Serializer::Error Serializer::serializeOctopusLayerChange(octopus::LayerChange c
 Serializer::Error Serializer::serializeStdVectorOctopusLayerChange(std::vector<octopus::LayerChange> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::LayerChange const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusLayerChange(elem)) return error; }
+    for (std::vector<octopus::LayerChange>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::LayerChange const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusLayerChange(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -1603,7 +1607,7 @@ Serializer::Error Serializer::serializeOctopusOverride(octopus::Override const &
 Serializer::Error Serializer::serializeStdVectorOctopusOverride(std::vector<octopus::Override> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Override const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusOverride(elem)) return error; }
+    for (std::vector<octopus::Override>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Override const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusOverride(elem)) return error; }
     write(']');
     return Error::OK;
 }

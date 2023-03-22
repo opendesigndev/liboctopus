@@ -5,6 +5,10 @@
 #include <cstdlib>
 #include "parser.h"
 
+#ifndef JSON_CPP_MAX_INTEGER
+#define JSON_CPP_MAX_INTEGER(T) ((T) ~(((T) ~(T) 0 <= (T) 0 ? -2 : 0)*((T) 1<<(8*sizeof(T)-2))))
+#endif
+
 namespace octopus {
 
 Parser::Error::operator Parser::Error::Type() const {
@@ -105,7 +109,7 @@ bool Parser::readHexQuad(int &value) {
         (value += 0x0010*decodeHexDigit(cur[2])) >= 0 &&
         (value += 0x0100*decodeHexDigit(cur[1])) >= 0 &&
         (value += 0x1000*decodeHexDigit(cur[0])) >= 0 &&
-        (cur += 4)
+        (cur += 4, true)
     );
 }
 
@@ -198,9 +202,9 @@ Parser::Error::Type Parser::readSigned(T &value) {
     else
         return Error::TYPE_MISMATCH;
     while (*cur >= '0' && *cur <= '9') {
-        if (10*value < value)
+        if (value < 0 || (value >= JSON_CPP_MAX_INTEGER(T)/10 && (value > JSON_CPP_MAX_INTEGER(T)/10 || (static_cast<T>(10*value+(*cur-'0')) < value && (!negative || *cur-'0' != (JSON_CPP_MAX_INTEGER(T)-9)%10)))))
             return Error::VALUE_OUT_OF_RANGE;
-        value = 10*value+(*cur++-'0');
+        value = static_cast<T>(10*value+(*cur++-'0'));
     }
     if (negative)
         value = -value;
@@ -226,11 +230,9 @@ Parser::Error Parser::parse(octopus::LayerChange &output, const char *jsonString
 }
 
 Parser::Error::Type Parser::parseStdString(std::string &value) {
-    skipWhitespace();
-    if (*cur != '"')
+    if (!matchSymbol('"'))
         return Error::STRING_EXPECTED;
     value.clear();
-    ++cur;
     while (*cur != '"') {
         if (*cur == '\\') {
             char buffer[8];
@@ -248,15 +250,263 @@ Parser::Error::Type Parser::parseStdString(std::string &value) {
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseOctopusOctopusType(octopus::Octopus::Type &value) {
+Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "OCTOPUS_COMPONENT")
-        value = octopus::Octopus::Type::OCTOPUS_COMPONENT;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
+    if (str.size() > 2) {
+        switch (str[2]) {
+            case 'B':
+                if (str == "SUBTRACT") {
+                    value = octopus::BlendMode::SUBTRACT;
+                    return Error::OK; 
+                }
+                break;
+            case 'C':
+                if (str == "EXCLUSION") {
+                    value = octopus::BlendMode::EXCLUSION;
+                    return Error::OK; 
+                }
+                break;
+            case 'E':
+                switch (str.size()) {
+                    case 3:
+                        if (str == "HUE") {
+                            value = octopus::BlendMode::HUE;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 7:
+                        if (str == "OVERLAY") {
+                            value = octopus::BlendMode::OVERLAY;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'F':
+                switch (str[0]) {
+                    case 'D':
+                        if (str == "DIFFERENCE") {
+                            value = octopus::BlendMode::DIFFERENCE;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 'S':
+                        if (str == "SOFT_LIGHT") {
+                            value = octopus::BlendMode::SOFT_LIGHT;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'G':
+                switch (str.size()) {
+                    case 7:
+                        if (str == "LIGHTEN") {
+                            value = octopus::BlendMode::LIGHTEN;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 13:
+                        if (str == "LIGHTER_COLOR") {
+                            value = octopus::BlendMode::LIGHTER_COLOR;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'L':
+                switch (str.size()) {
+                    case 5:
+                        if (str == "COLOR") {
+                            value = octopus::BlendMode::COLOR;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 8:
+                        if (str == "MULTIPLY") {
+                            value = octopus::BlendMode::MULTIPLY;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 10:
+                        if (str == "COLOR_BURN") {
+                            value = octopus::BlendMode::COLOR_BURN;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 11:
+                        if (str == "COLOR_DODGE") {
+                            value = octopus::BlendMode::COLOR_DODGE;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'M':
+                if (str == "LUMINOSITY") {
+                    value = octopus::BlendMode::LUMINOSITY;
+                    return Error::OK; 
+                }
+                break;
+            case 'N':
+                if (str.size() > 7) {
+                    switch (str[7]) {
+                        case 'B':
+                            if (str == "LINEAR_BURN") {
+                                value = octopus::BlendMode::LINEAR_BURN;
+                                return Error::OK; 
+                            }
+                            break;
+                        case 'D':
+                            if (str == "LINEAR_DODGE") {
+                                value = octopus::BlendMode::LINEAR_DODGE;
+                                return Error::OK; 
+                            }
+                            break;
+                        case 'H':
+                            if (str == "PIN_LIGHT") {
+                                value = octopus::BlendMode::PIN_LIGHT;
+                                return Error::OK; 
+                            }
+                            break;
+                        case 'L':
+                            if (str == "LINEAR_LIGHT") {
+                                value = octopus::BlendMode::LINEAR_LIGHT;
+                                return Error::OK; 
+                            }
+                            break;
+                    }
+                }
+                break;
+            case 'R':
+                switch (str.size()) {
+                    case 6:
+                        switch (str[0]) {
+                            case 'D':
+                                if (str == "DARKEN") {
+                                    value = octopus::BlendMode::DARKEN;
+                                    return Error::OK; 
+                                }
+                                break;
+                            case 'N':
+                                if (str == "NORMAL") {
+                                    value = octopus::BlendMode::NORMAL;
+                                    return Error::OK; 
+                                }
+                                break;
+                            case 'S':
+                                if (str == "SCREEN") {
+                                    value = octopus::BlendMode::SCREEN;
+                                    return Error::OK; 
+                                }
+                                break;
+                        }
+                        break;
+                    case 8:
+                        if (str == "HARD_MIX") {
+                            value = octopus::BlendMode::HARD_MIX;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 10:
+                        if (str == "HARD_LIGHT") {
+                            value = octopus::BlendMode::HARD_LIGHT;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 12:
+                        if (str == "DARKER_COLOR") {
+                            value = octopus::BlendMode::DARKER_COLOR;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'S':
+                if (str == "PASS_THROUGH") {
+                    value = octopus::BlendMode::PASS_THROUGH;
+                    return Error::OK; 
+                }
+                break;
+            case 'T':
+                if (str == "SATURATION") {
+                    value = octopus::BlendMode::SATURATION;
+                    return Error::OK; 
+                }
+                break;
+            case 'V':
+                switch (str.size()) {
+                    case 6:
+                        if (str == "DIVIDE") {
+                            value = octopus::BlendMode::DIVIDE;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 11:
+                        if (str == "VIVID_LIGHT") {
+                            value = octopus::BlendMode::VIVID_LIGHT;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdString(nonstd::optional<std::string> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdString((value = std::string()).value()))
+        return error;
     return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusEffectBasis(octopus::EffectBasis &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            switch (str[0]) {
+                case 'B':
+                    if (str == "BODY") {
+                        value = octopus::EffectBasis::BODY;
+                        return Error::OK; 
+                    }
+                    break;
+                case 'F':
+                    if (str == "FILL") {
+                        value = octopus::EffectBasis::FILL;
+                        return Error::OK; 
+                    }
+                    break;
+            }
+            break;
+        case 10:
+            if (str == "BACKGROUND") {
+                value = octopus::EffectBasis::BACKGROUND;
+                return Error::OK; 
+            }
+            break;
+        case 16:
+            if (str == "BODY_AND_STROKES") {
+                value = octopus::EffectBasis::BODY_AND_STROKES;
+                return Error::OK; 
+            }
+            break;
+        case 17:
+            if (str == "LAYER_AND_EFFECTS") {
+                value = octopus::EffectBasis::LAYER_AND_EFFECTS;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseDouble(double &value) {
@@ -268,28 +518,385 @@ Parser::Error::Type Parser::parseDouble(double &value) {
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseOctopusDimensions(octopus::Dimensions &value) {
+Parser::Error::Type Parser::parseOctopusVec2(octopus::Vec2 &value) {
     std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "width") {
-            if (Error error = parseDouble(value.width))
-                return error;
-        } else if (key == "height") {
-            if (Error error = parseDouble(value.height))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'x':
+                    if (key == "x") {
+                        if (Error error = parseDouble(value.x))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'y':
+                    if (key == "y") {
+                        if (Error error = parseDouble(value.y))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusColor(octopus::Color &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'a':
+                    if (key == "a") {
+                        if (Error error = parseDouble(value.a))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'b':
+                    if (key == "b") {
+                        if (Error error = parseDouble(value.b))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'g':
+                    if (key == "g") {
+                        if (Error error = parseDouble(value.g))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'r':
+                    if (key == "r") {
+                        if (Error error = parseDouble(value.r))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusShadow(octopus::Shadow &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 1) {
+            switch (key[1]) {
+                case 'f':
+                    if (key == "offset") {
+                        if (Error error = parseOctopusVec2(value.offset))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'h':
+                    if (key == "choke") {
+                        if (Error error = parseDouble(value.choke))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "blur") {
+                        if (Error error = parseDouble(value.blur))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'o':
+                    if (key == "color") {
+                        if (Error error = parseOctopusColor(value.color))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusShadow(nonstd::optional<octopus::Shadow> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusShadow((value = octopus::Shadow()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalDouble(nonstd::optional<double> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseDouble((value = double()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusColorAdjustment(octopus::ColorAdjustment &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 1) {
+            switch (key[1]) {
+                case 'a':
+                    if (key == "saturation") {
+                        if (Error error = parseDouble(value.saturation))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'e':
+                    if (key == "temperature") {
+                        if (Error error = parseDouble(value.temperature))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'h':
+                    if (key == "shadows") {
+                        if (Error error = parseDouble(value.shadows))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "tint") {
+                                if (Error error = parseDouble(value.tint))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 10:
+                            if (key == "highlights") {
+                                if (Error error = parseDouble(value.highlights))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'o':
+                    if (key == "contrast") {
+                        if (Error error = parseDouble(value.contrast))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'r':
+                    if (key == "brightness") {
+                        if (Error error = parseDouble(value.brightness))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'u':
+                    if (key == "hue") {
+                        if (Error error = parseDouble(value.hue))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'x':
+                    if (key == "exposure") {
+                        if (Error error = parseDouble(value.exposure))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusColorAdjustment(nonstd::optional<octopus::ColorAdjustment> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusColorAdjustment((value = octopus::ColorAdjustment()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusFilterType(octopus::Filter::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 18:
+            if (str == "OPACITY_MULTIPLIER") {
+                value = octopus::Filter::Type::OPACITY_MULTIPLIER;
+                return Error::OK; 
+            }
+            break;
+        case 22:
+            if (str == "FIGMA_COLOR_ADJUSTMENT") {
+                value = octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT;
+                return Error::OK; 
+            }
+            break;
+        case 23:
+            if (str == "SKETCH_COLOR_ADJUSTMENT") {
+                value = octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT;
+                return Error::OK; 
+            }
+            break;
+        case 24:
+            if (str == "XD_BRIGHTNESS_ADJUSTMENT") {
+                value = octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT;
+                return Error::OK; 
+            }
+            break;
+        case 28:
+            if (str == "SKETCH_BRIGHTNESS_ADJUSTMENT") {
+                value = octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseBool(bool &value) {
+    skipWhitespace();
+    if (cur[0] == 'f' && cur[1] == 'a' && cur[2] == 'l' && cur[3] == 's' && cur[4] == 'e' && !isAlphanumeric(cur[5]) && cur[5] != '_' && (cur += 5, true))
+        value = false;
+    else if (cur[0] == 't' && cur[1] == 'r' && cur[2] == 'u' && cur[3] == 'e' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value = true;
+    else
+        return Error::TYPE_MISMATCH;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusFilter(octopus::Filter &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'b':
+                    if (key == "brightness") {
+                        if (Error error = parseNonstdOptionalDouble(value.brightness))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'c':
+                    if (key == "colorAdjustment") {
+                        if (Error error = parseNonstdOptionalOctopusColorAdjustment(value.colorAdjustment))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'o':
+                    if (key == "opacity") {
+                        if (Error error = parseNonstdOptionalDouble(value.opacity))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "type") {
+                        if (Error error = parseOctopusFilterType(value.type))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "visible") {
+                        if (Error error = parseBool(value.visible))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusFilter(std::vector<octopus::Filter> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusFilter((value.resize(value.size()+1), value.back())))
+            return error;
         separatorCheck = matchSymbol(',');
     }
     if (separatorCheck == 1)
@@ -297,108 +904,441 @@ Parser::Error::Type Parser::parseOctopusDimensions(octopus::Dimensions &value) {
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseNonstdOptionalOctopusDimensions(nonstd::optional<octopus::Dimensions> &value) {
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusFilter(nonstd::optional<std::vector<octopus::Filter> > &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
-    else if (Error error = parseOctopusDimensions((value = octopus::Dimensions()).value()))
+    else if (Error error = parseStdVectorOctopusFilter((value = std::vector<octopus::Filter>()).value()))
         return error;
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseOctopusLayerType(octopus::Layer::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "SHAPE")
-        value = octopus::Layer::Type::SHAPE;
-    else if (str == "TEXT")
-        value = octopus::Layer::Type::TEXT;
-    else if (str == "GROUP")
-        value = octopus::Layer::Type::GROUP;
-    else if (str == "MASK_GROUP")
-        value = octopus::Layer::Type::MASK_GROUP;
-    else if (str == "COMPONENT_REFERENCE")
-        value = octopus::Layer::Type::COMPONENT_REFERENCE;
-    else if (str == "COMPONENT_INSTANCE")
-        value = octopus::Layer::Type::COMPONENT_INSTANCE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseBool(bool &value) {
+Parser::Error::Type Parser::parseNonstdOptionalOctopusColor(nonstd::optional<octopus::Color> &value) {
     skipWhitespace();
-    if (cur[0] == 'f' && cur[1] == 'a' && cur[2] == 'l' && cur[3] == 's' && cur[4] == 'e' && !isAlphanumeric(cur[5]) && cur[5] != '_' && ((cur += 5), true))
-        value = false;
-    else if (cur[0] == 't' && cur[1] == 'r' && cur[2] == 'u' && cur[3] == 'e' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value = true;
-    else
-        return Error::TYPE_MISMATCH;
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusColor((value = octopus::Color()).value()))
+        return error;
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
+Parser::Error::Type Parser::parseOctopusGradientType(octopus::Gradient::Type &value) {
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "NORMAL")
-        value = octopus::BlendMode::NORMAL;
-    else if (str == "PASS_THROUGH")
-        value = octopus::BlendMode::PASS_THROUGH;
-    else if (str == "COLOR")
-        value = octopus::BlendMode::COLOR;
-    else if (str == "COLOR_BURN")
-        value = octopus::BlendMode::COLOR_BURN;
-    else if (str == "COLOR_DODGE")
-        value = octopus::BlendMode::COLOR_DODGE;
-    else if (str == "DARKEN")
-        value = octopus::BlendMode::DARKEN;
-    else if (str == "DARKER_COLOR")
-        value = octopus::BlendMode::DARKER_COLOR;
-    else if (str == "DIFFERENCE")
-        value = octopus::BlendMode::DIFFERENCE;
-    else if (str == "DIVIDE")
-        value = octopus::BlendMode::DIVIDE;
-    else if (str == "EXCLUSION")
-        value = octopus::BlendMode::EXCLUSION;
-    else if (str == "HARD_LIGHT")
-        value = octopus::BlendMode::HARD_LIGHT;
-    else if (str == "HARD_MIX")
-        value = octopus::BlendMode::HARD_MIX;
-    else if (str == "HUE")
-        value = octopus::BlendMode::HUE;
-    else if (str == "LIGHTEN")
-        value = octopus::BlendMode::LIGHTEN;
-    else if (str == "LIGHTER_COLOR")
-        value = octopus::BlendMode::LIGHTER_COLOR;
-    else if (str == "LINEAR_BURN")
-        value = octopus::BlendMode::LINEAR_BURN;
-    else if (str == "LINEAR_DODGE")
-        value = octopus::BlendMode::LINEAR_DODGE;
-    else if (str == "LINEAR_LIGHT")
-        value = octopus::BlendMode::LINEAR_LIGHT;
-    else if (str == "LUMINOSITY")
-        value = octopus::BlendMode::LUMINOSITY;
-    else if (str == "MULTIPLY")
-        value = octopus::BlendMode::MULTIPLY;
-    else if (str == "OVERLAY")
-        value = octopus::BlendMode::OVERLAY;
-    else if (str == "PIN_LIGHT")
-        value = octopus::BlendMode::PIN_LIGHT;
-    else if (str == "SATURATION")
-        value = octopus::BlendMode::SATURATION;
-    else if (str == "SCREEN")
-        value = octopus::BlendMode::SCREEN;
-    else if (str == "SOFT_LIGHT")
-        value = octopus::BlendMode::SOFT_LIGHT;
-    else if (str == "SUBTRACT")
-        value = octopus::BlendMode::SUBTRACT;
-    else if (str == "VIVID_LIGHT")
-        value = octopus::BlendMode::VIVID_LIGHT;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'A':
+                if (str == "ANGULAR") {
+                    value = octopus::Gradient::Type::ANGULAR;
+                    return Error::OK; 
+                }
+                break;
+            case 'D':
+                if (str == "DIAMOND") {
+                    value = octopus::Gradient::Type::DIAMOND;
+                    return Error::OK; 
+                }
+                break;
+            case 'L':
+                if (str == "LINEAR") {
+                    value = octopus::Gradient::Type::LINEAR;
+                    return Error::OK; 
+                }
+                break;
+            case 'R':
+                if (str == "RADIAL") {
+                    value = octopus::Gradient::Type::RADIAL;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusGradientInterpolation(octopus::Gradient::Interpolation &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 5:
+            if (str == "POWER") {
+                value = octopus::Gradient::Interpolation::POWER;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "LINEAR") {
+                value = octopus::Gradient::Interpolation::LINEAR;
+                return Error::OK; 
+            }
+            break;
+        case 13:
+            if (str == "REVERSE_POWER") {
+                value = octopus::Gradient::Interpolation::REVERSE_POWER;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusGradientColorStop(octopus::Gradient::ColorStop &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 5:
+                if (key == "color") {
+                    if (Error error = parseOctopusColor(value.color))
+                        return error;
+                    continue;
+                }
+                break;
+            case 8:
+                if (key == "position") {
+                    if (Error error = parseDouble(value.position))
+                        return error;
+                    continue;
+                }
+                break;
+            case 13:
+                if (key == "interpolation") {
+                    if (Error error = parseOctopusGradientInterpolation(value.interpolation))
+                        return error;
+                    continue;
+                }
+                break;
+            case 22:
+                if (key == "interpolationParameter") {
+                    if (Error error = parseNonstdOptionalDouble(value.interpolationParameter))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
     return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusGradientColorStop(std::vector<octopus::Gradient::ColorStop> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusGradientColorStop((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusGradient(octopus::Gradient &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 4:
+                if (key == "type") {
+                    if (Error error = parseOctopusGradientType(value.type))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "stops") {
+                    if (Error error = parseStdVectorOctopusGradientColorStop(value.stops))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusGradient(nonstd::optional<octopus::Gradient> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusGradient((value = octopus::Gradient()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusImageRefType(octopus::ImageRef::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            if (str == "PATH") {
+                value = octopus::ImageRef::Type::PATH;
+                return Error::OK; 
+            }
+            break;
+        case 12:
+            if (str == "RESOURCE_REF") {
+                value = octopus::ImageRef::Type::RESOURCE_REF;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusImageRef(octopus::ImageRef &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 4:
+                if (key == "type") {
+                    if (Error error = parseOctopusImageRefType(value.type))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "value") {
+                    if (Error error = parseStdString(value.value))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusRectangle(octopus::Rectangle &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'x':
+                    if (key.size() > 1) {
+                        switch (key[1]) {
+                            case '0':
+                                if (key == "x0") {
+                                    if (Error error = parseDouble(value.x0))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                            case '1':
+                                if (key == "x1") {
+                                    if (Error error = parseDouble(value.x1))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                        }
+                    }
+                    break;
+                case 'y':
+                    if (key.size() > 1) {
+                        switch (key[1]) {
+                            case '0':
+                                if (key == "y0") {
+                                    if (Error error = parseDouble(value.y0))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                            case '1':
+                                if (key == "y1") {
+                                    if (Error error = parseDouble(value.y1))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                        }
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusRectangle(nonstd::optional<octopus::Rectangle> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusRectangle((value = octopus::Rectangle()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusImage(octopus::Image &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 3:
+                if (key == "ref") {
+                    if (Error error = parseOctopusImageRef(value.ref))
+                        return error;
+                    continue;
+                }
+                break;
+            case 10:
+                if (key == "subsection") {
+                    if (Error error = parseNonstdOptionalOctopusRectangle(value.subsection))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusImage(nonstd::optional<octopus::Image> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusImage((value = octopus::Image()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusFillPositioningLayout(octopus::Fill::Positioning::Layout &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 3:
+            if (str == "FIT") {
+                value = octopus::Fill::Positioning::Layout::FIT;
+                return Error::OK; 
+            }
+            break;
+        case 4:
+            switch (str[0]) {
+                case 'F':
+                    if (str == "FILL") {
+                        value = octopus::Fill::Positioning::Layout::FILL;
+                        return Error::OK; 
+                    }
+                    break;
+                case 'T':
+                    if (str == "TILE") {
+                        value = octopus::Fill::Positioning::Layout::TILE;
+                        return Error::OK; 
+                    }
+                    break;
+            }
+            break;
+        case 7:
+            if (str == "STRETCH") {
+                value = octopus::Fill::Positioning::Layout::STRETCH;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusFillPositioningOrigin(octopus::Fill::Positioning::Origin &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 5:
+            if (str == "LAYER") {
+                value = octopus::Fill::Positioning::Origin::LAYER;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "PARENT") {
+                value = octopus::Fill::Positioning::Origin::PARENT;
+                return Error::OK; 
+            }
+            break;
+        case 8:
+            if (str == "ARTBOARD") {
+                value = octopus::Fill::Positioning::Origin::ARTBOARD;
+                return Error::OK; 
+            }
+            break;
+        case 9:
+            if (str == "COMPONENT") {
+                value = octopus::Fill::Positioning::Origin::COMPONENT;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseDouble_6(double value[6]) {
@@ -422,563 +1362,45 @@ Parser::Error::Type Parser::parseDouble_6(double value[6]) {
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseNonstdOptionalDouble(nonstd::optional<double> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseDouble((value = double()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusShapeFillRule(octopus::Shape::FillRule &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "EVEN_ODD")
-        value = octopus::Shape::FillRule::EVEN_ODD;
-    else if (str == "NON_ZERO")
-        value = octopus::Shape::FillRule::NON_ZERO;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusShapeFillRule(nonstd::optional<octopus::Shape::FillRule> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusShapeFillRule((value = octopus::Shape::FillRule()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusPathType(octopus::Path::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "PATH")
-        value = octopus::Path::Type::PATH;
-    else if (str == "RECTANGLE")
-        value = octopus::Path::Type::RECTANGLE;
-    else if (str == "COMPOUND")
-        value = octopus::Path::Type::COMPOUND;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusPathOp(octopus::Path::Op &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "UNION")
-        value = octopus::Path::Op::UNION;
-    else if (str == "INTERSECT")
-        value = octopus::Path::Op::INTERSECT;
-    else if (str == "SUBTRACT")
-        value = octopus::Path::Op::SUBTRACT;
-    else if (str == "EXCLUDE")
-        value = octopus::Path::Op::EXCLUDE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusPathOp(nonstd::optional<octopus::Path::Op> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusPathOp((value = octopus::Path::Op()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdString(nonstd::optional<std::string> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdString((value = std::string()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusPath(std::vector<octopus::Path> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusPath((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusPath(nonstd::optional<std::vector<octopus::Path> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusPath((value = std::vector<octopus::Path>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusRectangle(octopus::Rectangle &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "x0") {
-            if (Error error = parseDouble(value.x0))
-                return error;
-        } else if (key == "y0") {
-            if (Error error = parseDouble(value.y0))
-                return error;
-        } else if (key == "x1") {
-            if (Error error = parseDouble(value.x1))
-                return error;
-        } else if (key == "y1") {
-            if (Error error = parseDouble(value.y1))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusRectangle(nonstd::optional<octopus::Rectangle> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusRectangle((value = octopus::Rectangle()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorDouble(std::vector<double> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseDouble((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorDouble(nonstd::optional<std::vector<double> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorDouble((value = std::vector<double>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusPath(octopus::Path &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusPathType(value.type))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "op") {
-            if (Error error = parseNonstdOptionalOctopusPathOp(value.op))
-                return error;
-        } else if (key == "geometry") {
-            if (Error error = parseNonstdOptionalStdString(value.geometry))
-                return error;
-        } else if (key == "paths") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusPath(value.paths))
-                return error;
-        } else if (key == "rectangle") {
-            if (Error error = parseNonstdOptionalOctopusRectangle(value.rectangle))
-                return error;
-        } else if (key == "cornerRadius") {
-            if (Error error = parseNonstdOptionalDouble(value.cornerRadius))
-                return error;
-        } else if (key == "cornerRadii") {
-            if (Error error = parseNonstdOptionalStdVectorDouble(value.cornerRadii))
-                return error;
-        } else if (key == "transform") {
-            if (Error error = parseDouble_6(value.transform))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusPath(nonstd::optional<octopus::Path> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusPath((value = octopus::Path()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusFillType(octopus::Fill::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "COLOR")
-        value = octopus::Fill::Type::COLOR;
-    else if (str == "GRADIENT")
-        value = octopus::Fill::Type::GRADIENT;
-    else if (str == "IMAGE")
-        value = octopus::Fill::Type::IMAGE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusColor(octopus::Color &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "r") {
-            if (Error error = parseDouble(value.r))
-                return error;
-        } else if (key == "g") {
-            if (Error error = parseDouble(value.g))
-                return error;
-        } else if (key == "b") {
-            if (Error error = parseDouble(value.b))
-                return error;
-        } else if (key == "a") {
-            if (Error error = parseDouble(value.a))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusColor(nonstd::optional<octopus::Color> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusColor((value = octopus::Color()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusGradientType(octopus::Gradient::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "LINEAR")
-        value = octopus::Gradient::Type::LINEAR;
-    else if (str == "RADIAL")
-        value = octopus::Gradient::Type::RADIAL;
-    else if (str == "ANGULAR")
-        value = octopus::Gradient::Type::ANGULAR;
-    else if (str == "DIAMOND")
-        value = octopus::Gradient::Type::DIAMOND;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusGradientInterpolation(octopus::Gradient::Interpolation &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "LINEAR")
-        value = octopus::Gradient::Interpolation::LINEAR;
-    else if (str == "POWER")
-        value = octopus::Gradient::Interpolation::POWER;
-    else if (str == "REVERSE_POWER")
-        value = octopus::Gradient::Interpolation::REVERSE_POWER;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusGradientColorStop(octopus::Gradient::ColorStop &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "position") {
-            if (Error error = parseDouble(value.position))
-                return error;
-        } else if (key == "interpolation") {
-            if (Error error = parseOctopusGradientInterpolation(value.interpolation))
-                return error;
-        } else if (key == "interpolationParameter") {
-            if (Error error = parseNonstdOptionalDouble(value.interpolationParameter))
-                return error;
-        } else if (key == "color") {
-            if (Error error = parseOctopusColor(value.color))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusGradientColorStop(std::vector<octopus::Gradient::ColorStop> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusGradientColorStop((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusGradient(octopus::Gradient &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusGradientType(value.type))
-                return error;
-        } else if (key == "stops") {
-            if (Error error = parseStdVectorOctopusGradientColorStop(value.stops))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusGradient(nonstd::optional<octopus::Gradient> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusGradient((value = octopus::Gradient()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusImageRefType(octopus::ImageRef::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "PATH")
-        value = octopus::ImageRef::Type::PATH;
-    else if (str == "RESOURCE_REF")
-        value = octopus::ImageRef::Type::RESOURCE_REF;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusImageRef(octopus::ImageRef &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusImageRefType(value.type))
-                return error;
-        } else if (key == "value") {
-            if (Error error = parseStdString(value.value))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusImage(octopus::Image &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "ref") {
-            if (Error error = parseOctopusImageRef(value.ref))
-                return error;
-        } else if (key == "subsection") {
-            if (Error error = parseNonstdOptionalOctopusRectangle(value.subsection))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusImage(nonstd::optional<octopus::Image> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusImage((value = octopus::Image()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusFillPositioningLayout(octopus::Fill::Positioning::Layout &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "STRETCH")
-        value = octopus::Fill::Positioning::Layout::STRETCH;
-    else if (str == "FILL")
-        value = octopus::Fill::Positioning::Layout::FILL;
-    else if (str == "FIT")
-        value = octopus::Fill::Positioning::Layout::FIT;
-    else if (str == "TILE")
-        value = octopus::Fill::Positioning::Layout::TILE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusFillPositioningOrigin(octopus::Fill::Positioning::Origin &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "LAYER")
-        value = octopus::Fill::Positioning::Origin::LAYER;
-    else if (str == "PARENT")
-        value = octopus::Fill::Positioning::Origin::PARENT;
-    else if (str == "COMPONENT")
-        value = octopus::Fill::Positioning::Origin::COMPONENT;
-    else if (str == "ARTBOARD")
-        value = octopus::Fill::Positioning::Origin::ARTBOARD;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
 Parser::Error::Type Parser::parseOctopusFillPositioning(octopus::Fill::Positioning &value) {
     std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "layout") {
-            if (Error error = parseOctopusFillPositioningLayout(value.layout))
-                return error;
-        } else if (key == "origin") {
-            if (Error error = parseOctopusFillPositioningOrigin(value.origin))
-                return error;
-        } else if (key == "transform") {
-            if (Error error = parseDouble_6(value.transform))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'l':
+                    if (key == "layout") {
+                        if (Error error = parseOctopusFillPositioningLayout(value.layout))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'o':
+                    if (key == "origin") {
+                        if (Error error = parseOctopusFillPositioningOrigin(value.origin))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "transform") {
+                        if (Error error = parseDouble_6(value.transform))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -987,153 +1409,40 @@ Parser::Error::Type Parser::parseOctopusFillPositioning(octopus::Fill::Positioni
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusFillPositioning(nonstd::optional<octopus::Fill::Positioning> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusFillPositioning((value = octopus::Fill::Positioning()).value()))
         return error;
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseOctopusFilterType(octopus::Filter::Type &value) {
+Parser::Error::Type Parser::parseOctopusFillType(octopus::Fill::Type &value) {
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "OPACITY_MULTIPLIER")
-        value = octopus::Filter::Type::OPACITY_MULTIPLIER;
-    else if (str == "XD_BRIGHTNESS_ADJUSTMENT")
-        value = octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT;
-    else if (str == "SKETCH_BRIGHTNESS_ADJUSTMENT")
-        value = octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT;
-    else if (str == "SKETCH_COLOR_ADJUSTMENT")
-        value = octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT;
-    else if (str == "FIGMA_COLOR_ADJUSTMENT")
-        value = octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusColorAdjustment(octopus::ColorAdjustment &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "hue") {
-            if (Error error = parseDouble(value.hue))
-                return error;
-        } else if (key == "saturation") {
-            if (Error error = parseDouble(value.saturation))
-                return error;
-        } else if (key == "brightness") {
-            if (Error error = parseDouble(value.brightness))
-                return error;
-        } else if (key == "contrast") {
-            if (Error error = parseDouble(value.contrast))
-                return error;
-        } else if (key == "exposure") {
-            if (Error error = parseDouble(value.exposure))
-                return error;
-        } else if (key == "temperature") {
-            if (Error error = parseDouble(value.temperature))
-                return error;
-        } else if (key == "tint") {
-            if (Error error = parseDouble(value.tint))
-                return error;
-        } else if (key == "highlights") {
-            if (Error error = parseDouble(value.highlights))
-                return error;
-        } else if (key == "shadows") {
-            if (Error error = parseDouble(value.shadows))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'C':
+                if (str == "COLOR") {
+                    value = octopus::Fill::Type::COLOR;
+                    return Error::OK; 
+                }
+                break;
+            case 'G':
+                if (str == "GRADIENT") {
+                    value = octopus::Fill::Type::GRADIENT;
+                    return Error::OK; 
+                }
+                break;
+            case 'I':
+                if (str == "IMAGE") {
+                    value = octopus::Fill::Type::IMAGE;
+                    return Error::OK; 
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
     }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusColorAdjustment(nonstd::optional<octopus::ColorAdjustment> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusColorAdjustment((value = octopus::ColorAdjustment()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusFilter(octopus::Filter &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusFilterType(value.type))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "opacity") {
-            if (Error error = parseNonstdOptionalDouble(value.opacity))
-                return error;
-        } else if (key == "brightness") {
-            if (Error error = parseNonstdOptionalDouble(value.brightness))
-                return error;
-        } else if (key == "colorAdjustment") {
-            if (Error error = parseNonstdOptionalOctopusColorAdjustment(value.colorAdjustment))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusFilter(std::vector<octopus::Filter> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusFilter((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusFilter(nonstd::optional<std::vector<octopus::Filter> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusFilter((value = std::vector<octopus::Filter>()).value()))
-        return error;
-    return Error::OK;
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseOctopusFill(octopus::Fill &value) {
@@ -1141,59 +1450,75 @@ Parser::Error::Type Parser::parseOctopusFill(octopus::Fill &value) {
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusFillType(value.type))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "blendMode") {
-            if (Error error = parseOctopusBlendMode(value.blendMode))
-                return error;
-        } else if (key == "color") {
-            if (Error error = parseNonstdOptionalOctopusColor(value.color))
-                return error;
-        } else if (key == "gradient") {
-            if (Error error = parseNonstdOptionalOctopusGradient(value.gradient))
-                return error;
-        } else if (key == "image") {
-            if (Error error = parseNonstdOptionalOctopusImage(value.image))
-                return error;
-        } else if (key == "positioning") {
-            if (Error error = parseNonstdOptionalOctopusFillPositioning(value.positioning))
-                return error;
-        } else if (key == "filters") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'b':
+                    if (key == "blendMode") {
+                        if (Error error = parseOctopusBlendMode(value.blendMode))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'c':
+                    if (key == "color") {
+                        if (Error error = parseNonstdOptionalOctopusColor(value.color))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'f':
+                    if (key == "filters") {
+                        if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'g':
+                    if (key == "gradient") {
+                        if (Error error = parseNonstdOptionalOctopusGradient(value.gradient))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "image") {
+                        if (Error error = parseNonstdOptionalOctopusImage(value.image))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    if (key == "positioning") {
+                        if (Error error = parseNonstdOptionalOctopusFillPositioning(value.positioning))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "type") {
+                        if (Error error = parseOctopusFillType(value.type))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "visible") {
+                        if (Error error = parseBool(value.visible))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusFill(std::vector<octopus::Fill> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusFill((value.emplace_back(), value.back())))
+        if (Error error = skipValue())
             return error;
-        separatorCheck = matchSymbol(',');
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -1204,149 +1529,249 @@ Parser::Error::Type Parser::parseOctopusStrokePosition(octopus::Stroke::Position
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "OUTSIDE")
-        value = octopus::Stroke::Position::OUTSIDE;
-    else if (str == "CENTER")
-        value = octopus::Stroke::Position::CENTER;
-    else if (str == "INSIDE")
-        value = octopus::Stroke::Position::INSIDE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'C':
+                if (str == "CENTER") {
+                    value = octopus::Stroke::Position::CENTER;
+                    return Error::OK; 
+                }
+                break;
+            case 'I':
+                if (str == "INSIDE") {
+                    value = octopus::Stroke::Position::INSIDE;
+                    return Error::OK; 
+                }
+                break;
+            case 'O':
+                if (str == "OUTSIDE") {
+                    value = octopus::Stroke::Position::OUTSIDE;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
-Parser::Error::Type Parser::parseOctopusVectorStrokeStyle(octopus::VectorStroke::Style &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "SOLID")
-        value = octopus::VectorStroke::Style::SOLID;
-    else if (str == "DASHED")
-        value = octopus::VectorStroke::Style::DASHED;
-    else if (str == "DOTTED")
-        value = octopus::VectorStroke::Style::DOTTED;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeStyle(nonstd::optional<octopus::VectorStroke::Style> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusVectorStrokeStyle((value = octopus::VectorStroke::Style()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusVectorStrokeLineJoin(octopus::VectorStroke::LineJoin &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "MITER")
-        value = octopus::VectorStroke::LineJoin::MITER;
-    else if (str == "ROUND")
-        value = octopus::VectorStroke::LineJoin::ROUND;
-    else if (str == "BEVEL")
-        value = octopus::VectorStroke::LineJoin::BEVEL;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineJoin(nonstd::optional<octopus::VectorStroke::LineJoin> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusVectorStrokeLineJoin((value = octopus::VectorStroke::LineJoin()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusVectorStrokeLineCap(octopus::VectorStroke::LineCap &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "BUTT")
-        value = octopus::VectorStroke::LineCap::BUTT;
-    else if (str == "ROUND")
-        value = octopus::VectorStroke::LineCap::ROUND;
-    else if (str == "SQUARE")
-        value = octopus::VectorStroke::LineCap::SQUARE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineCap(nonstd::optional<octopus::VectorStroke::LineCap> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusVectorStrokeLineCap((value = octopus::VectorStroke::LineCap()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &value) {
+Parser::Error::Type Parser::parseOctopusStroke(octopus::Stroke &value) {
     std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "fill") {
-            if (Error error = parseOctopusFill(value.fill))
-                return error;
-        } else if (key == "thickness") {
-            if (Error error = parseDouble(value.thickness))
-                return error;
-        } else if (key == "position") {
-            if (Error error = parseOctopusStrokePosition(value.position))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "style") {
-            if (Error error = parseNonstdOptionalOctopusVectorStrokeStyle(value.style))
-                return error;
-        } else if (key == "lineJoin") {
-            if (Error error = parseNonstdOptionalOctopusVectorStrokeLineJoin(value.lineJoin))
-                return error;
-        } else if (key == "lineCap") {
-            if (Error error = parseNonstdOptionalOctopusVectorStrokeLineCap(value.lineCap))
-                return error;
-        } else if (key == "miterLimit") {
-            if (Error error = parseNonstdOptionalDouble(value.miterLimit))
-                return error;
-        } else if (key == "dashing") {
-            if (Error error = parseNonstdOptionalStdVectorDouble(value.dashing))
-                return error;
-        } else if (key == "dashOffset") {
-            if (Error error = parseNonstdOptionalDouble(value.dashOffset))
-                return error;
-        } else if (key == "fillRule") {
-            if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
-                return error;
-        } else if (key == "path") {
-            if (Error error = parseNonstdOptionalOctopusPath(value.path))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 4:
+                if (key == "fill") {
+                    if (Error error = parseOctopusFill(value.fill))
+                        return error;
+                    continue;
+                }
+                break;
+            case 8:
+                if (key == "position") {
+                    if (Error error = parseOctopusStrokePosition(value.position))
+                        return error;
+                    continue;
+                }
+                break;
+            case 9:
+                if (key == "thickness") {
+                    if (Error error = parseDouble(value.thickness))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseStdVectorOctopusShapeStroke(std::vector<octopus::Shape::Stroke> &value) {
+Parser::Error::Type Parser::parseNonstdOptionalOctopusStroke(nonstd::optional<octopus::Stroke> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusStroke((value = octopus::Stroke()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusFill(nonstd::optional<octopus::Fill> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusFill((value = octopus::Fill()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            if (str == "BLUR") {
+                value = octopus::Effect::Type::BLUR;
+                return Error::OK; 
+            }
+            break;
+        case 5:
+            if (str == "OTHER") {
+                value = octopus::Effect::Type::OTHER;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "STROKE") {
+                value = octopus::Effect::Type::STROKE;
+                return Error::OK; 
+            }
+            break;
+        case 7:
+            if (str == "OVERLAY") {
+                value = octopus::Effect::Type::OVERLAY;
+                return Error::OK; 
+            }
+            break;
+        case 11:
+            if (str == "DROP_SHADOW") {
+                value = octopus::Effect::Type::DROP_SHADOW;
+                return Error::OK; 
+            }
+            break;
+        case 12:
+            switch (str[0]) {
+                case 'B':
+                    if (str == "BOUNDED_BLUR") {
+                        value = octopus::Effect::Type::BOUNDED_BLUR;
+                        return Error::OK; 
+                    }
+                    break;
+                case 'I':
+                    if (str == "INNER_SHADOW") {
+                        value = octopus::Effect::Type::INNER_SHADOW;
+                        return Error::OK; 
+                    }
+                    break;
+            }
+            break;
+        case 13:
+            if (str == "GAUSSIAN_BLUR") {
+                value = octopus::Effect::Type::GAUSSIAN_BLUR;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 1) {
+            switch (key[1]) {
+                case 'a':
+                    if (key == "basis") {
+                        if (Error error = parseOctopusEffectBasis(value.basis))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'h':
+                    if (key == "shadow") {
+                        if (Error error = parseNonstdOptionalOctopusShadow(value.shadow))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    switch (key[0]) {
+                        case 'f':
+                            if (key == "filters") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 'v':
+                            if (key == "visible") {
+                                if (Error error = parseBool(value.visible))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'l':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "blur") {
+                                if (Error error = parseNonstdOptionalDouble(value.blur))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "blendMode") {
+                                if (Error error = parseOctopusBlendMode(value.blendMode))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 't':
+                    if (key == "stroke") {
+                        if (Error error = parseNonstdOptionalOctopusStroke(value.stroke))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "overlay") {
+                        if (Error error = parseNonstdOptionalOctopusFill(value.overlay))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'y':
+                    if (key == "type") {
+                        if (Error error = parseOctopusEffectType(value.type))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusEffect(std::vector<octopus::Effect> &value) {
     if (!matchSymbol('['))
         return Error::TYPE_MISMATCH;
     value.clear();
@@ -1354,7 +1779,7 @@ Parser::Error::Type Parser::parseStdVectorOctopusShapeStroke(std::vector<octopus
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusShapeStroke((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusEffect((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -1363,138 +1788,7 @@ Parser::Error::Type Parser::parseStdVectorOctopusShapeStroke(std::vector<octopus
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseOctopusShape(octopus::Shape &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "fillRule") {
-            if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
-                return error;
-        } else if (key == "path") {
-            if (Error error = parseNonstdOptionalOctopusPath(value.path))
-                return error;
-        } else if (key == "fills") {
-            if (Error error = parseStdVectorOctopusFill(value.fills))
-                return error;
-        } else if (key == "strokes") {
-            if (Error error = parseStdVectorOctopusShapeStroke(value.strokes))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusShape(nonstd::optional<octopus::Shape> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusShape((value = octopus::Shape()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalBool(nonstd::optional<bool> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseBool((value = bool()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusFont(octopus::Font &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "postScriptName") {
-            if (Error error = parseStdString(value.postScriptName))
-                return error;
-        } else if (key == "family") {
-            if (Error error = parseNonstdOptionalStdString(value.family))
-                return error;
-        } else if (key == "style") {
-            if (Error error = parseNonstdOptionalStdString(value.style))
-                return error;
-        } else if (key == "syntheticPostScriptName") {
-            if (Error error = parseNonstdOptionalBool(value.syntheticPostScriptName))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusFont(nonstd::optional<octopus::Font> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusFont((value = octopus::Font()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseInt(int &value) {
-    skipWhitespace();
-    return readSigned(value);
-}
-
-Parser::Error::Type Parser::parseOctopusOpenTypeFeature(octopus::OpenTypeFeature &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "tag") {
-            if (Error error = parseStdString(value.tag))
-                return error;
-        } else if (key == "value") {
-            if (Error error = parseInt(value.value))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusOpenTypeFeature(std::vector<octopus::OpenTypeFeature> &value) {
+Parser::Error::Type Parser::parseStdListOctopusLayer(std::list<octopus::Layer> &value) {
     if (!matchSymbol('['))
         return Error::TYPE_MISMATCH;
     value.clear();
@@ -1502,7 +1796,7 @@ Parser::Error::Type Parser::parseStdVectorOctopusOpenTypeFeature(std::vector<oct
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusOpenTypeFeature((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusLayer((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -1511,513 +1805,11 @@ Parser::Error::Type Parser::parseStdVectorOctopusOpenTypeFeature(std::vector<oct
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOpenTypeFeature(nonstd::optional<std::vector<octopus::OpenTypeFeature> > &value) {
+Parser::Error::Type Parser::parseNonstdOptionalStdListOctopusLayer(nonstd::optional<std::list<octopus::Layer> > &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
-    else if (Error error = parseStdVectorOctopusOpenTypeFeature((value = std::vector<octopus::OpenTypeFeature>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextStyleLigatures(octopus::TextStyle::Ligatures &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "NONE")
-        value = octopus::TextStyle::Ligatures::NONE;
-    else if (str == "STANDARD")
-        value = octopus::TextStyle::Ligatures::STANDARD;
-    else if (str == "ALL")
-        value = octopus::TextStyle::Ligatures::ALL;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLigatures(nonstd::optional<octopus::TextStyle::Ligatures> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusTextStyleLigatures((value = octopus::TextStyle::Ligatures()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextStyleUnderline(octopus::TextStyle::Underline &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "NONE")
-        value = octopus::TextStyle::Underline::NONE;
-    else if (str == "SINGLE")
-        value = octopus::TextStyle::Underline::SINGLE;
-    else if (str == "DOUBLE")
-        value = octopus::TextStyle::Underline::DOUBLE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleUnderline(nonstd::optional<octopus::TextStyle::Underline> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusTextStyleUnderline((value = octopus::TextStyle::Underline()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextStyleLetterCase(octopus::TextStyle::LetterCase &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "NONE")
-        value = octopus::TextStyle::LetterCase::NONE;
-    else if (str == "UPPERCASE")
-        value = octopus::TextStyle::LetterCase::UPPERCASE;
-    else if (str == "LOWERCASE")
-        value = octopus::TextStyle::LetterCase::LOWERCASE;
-    else if (str == "SMALL_CAPS")
-        value = octopus::TextStyle::LetterCase::SMALL_CAPS;
-    else if (str == "TITLE_CASE")
-        value = octopus::TextStyle::LetterCase::TITLE_CASE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLetterCase(nonstd::optional<octopus::TextStyle::LetterCase> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusTextStyleLetterCase((value = octopus::TextStyle::LetterCase()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusFill(nonstd::optional<std::vector<octopus::Fill> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusFill((value = std::vector<octopus::Fill>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusVectorStroke(octopus::VectorStroke &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "fill") {
-            if (Error error = parseOctopusFill(value.fill))
-                return error;
-        } else if (key == "thickness") {
-            if (Error error = parseDouble(value.thickness))
-                return error;
-        } else if (key == "position") {
-            if (Error error = parseOctopusStrokePosition(value.position))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "style") {
-            if (Error error = parseNonstdOptionalOctopusVectorStrokeStyle(value.style))
-                return error;
-        } else if (key == "lineJoin") {
-            if (Error error = parseNonstdOptionalOctopusVectorStrokeLineJoin(value.lineJoin))
-                return error;
-        } else if (key == "lineCap") {
-            if (Error error = parseNonstdOptionalOctopusVectorStrokeLineCap(value.lineCap))
-                return error;
-        } else if (key == "miterLimit") {
-            if (Error error = parseNonstdOptionalDouble(value.miterLimit))
-                return error;
-        } else if (key == "dashing") {
-            if (Error error = parseNonstdOptionalStdVectorDouble(value.dashing))
-                return error;
-        } else if (key == "dashOffset") {
-            if (Error error = parseNonstdOptionalDouble(value.dashOffset))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusVectorStroke(std::vector<octopus::VectorStroke> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusVectorStroke((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusVectorStroke(nonstd::optional<std::vector<octopus::VectorStroke> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusVectorStroke((value = std::vector<octopus::VectorStroke>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "font") {
-            if (Error error = parseNonstdOptionalOctopusFont(value.font))
-                return error;
-        } else if (key == "fontSize") {
-            if (Error error = parseNonstdOptionalDouble(value.fontSize))
-                return error;
-        } else if (key == "lineHeight") {
-            if (Error error = parseNonstdOptionalDouble(value.lineHeight))
-                return error;
-        } else if (key == "letterSpacing") {
-            if (Error error = parseNonstdOptionalDouble(value.letterSpacing))
-                return error;
-        } else if (key == "kerning") {
-            if (Error error = parseNonstdOptionalBool(value.kerning))
-                return error;
-        } else if (key == "features") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusOpenTypeFeature(value.features))
-                return error;
-        } else if (key == "ligatures") {
-            if (Error error = parseNonstdOptionalOctopusTextStyleLigatures(value.ligatures))
-                return error;
-        } else if (key == "underline") {
-            if (Error error = parseNonstdOptionalOctopusTextStyleUnderline(value.underline))
-                return error;
-        } else if (key == "linethrough") {
-            if (Error error = parseNonstdOptionalBool(value.linethrough))
-                return error;
-        } else if (key == "letterCase") {
-            if (Error error = parseNonstdOptionalOctopusTextStyleLetterCase(value.letterCase))
-                return error;
-        } else if (key == "fills") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))
-                return error;
-        } else if (key == "strokes") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusVectorStroke(value.strokes))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusStyleRangeRange(octopus::StyleRange::Range &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "from") {
-            if (Error error = parseInt(value.from))
-                return error;
-        } else if (key == "to") {
-            if (Error error = parseInt(value.to))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusStyleRangeRange(std::vector<octopus::StyleRange::Range> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusStyleRangeRange((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusStyleRange(octopus::StyleRange &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "style") {
-            if (Error error = parseOctopusTextStyle(value.style))
-                return error;
-        } else if (key == "ranges") {
-            if (Error error = parseStdVectorOctopusStyleRangeRange(value.ranges))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusStyleRange(std::vector<octopus::StyleRange> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusStyleRange((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusStyleRange(nonstd::optional<std::vector<octopus::StyleRange> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusStyleRange((value = std::vector<octopus::StyleRange>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextFrameMode(octopus::TextFrame::Mode &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "AUTO_WIDTH")
-        value = octopus::TextFrame::Mode::AUTO_WIDTH;
-    else if (str == "AUTO_HEIGHT")
-        value = octopus::TextFrame::Mode::AUTO_HEIGHT;
-    else if (str == "FIXED")
-        value = octopus::TextFrame::Mode::FIXED;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextFrame(octopus::TextFrame &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "mode") {
-            if (Error error = parseOctopusTextFrameMode(value.mode))
-                return error;
-        } else if (key == "size") {
-            if (Error error = parseNonstdOptionalOctopusDimensions(value.size))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusTextFrame(nonstd::optional<octopus::TextFrame> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusTextFrame((value = octopus::TextFrame()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextHorizontalAlign(octopus::Text::HorizontalAlign &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "LEFT")
-        value = octopus::Text::HorizontalAlign::LEFT;
-    else if (str == "CENTER")
-        value = octopus::Text::HorizontalAlign::CENTER;
-    else if (str == "RIGHT")
-        value = octopus::Text::HorizontalAlign::RIGHT;
-    else if (str == "JUSTIFY")
-        value = octopus::Text::HorizontalAlign::JUSTIFY;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextVerticalAlign(octopus::Text::VerticalAlign &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "TOP")
-        value = octopus::Text::VerticalAlign::TOP;
-    else if (str == "CENTER")
-        value = octopus::Text::VerticalAlign::CENTER;
-    else if (str == "BOTTOM")
-        value = octopus::Text::VerticalAlign::BOTTOM;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextBaselinePolicy(octopus::Text::BaselinePolicy &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "SET")
-        value = octopus::Text::BaselinePolicy::SET;
-    else if (str == "CENTER")
-        value = octopus::Text::BaselinePolicy::CENTER;
-    else if (str == "OFFSET_ASCENDER")
-        value = octopus::Text::BaselinePolicy::OFFSET_ASCENDER;
-    else if (str == "OFFSET_BEARING")
-        value = octopus::Text::BaselinePolicy::OFFSET_BEARING;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusTextOverflowPolicy(octopus::Text::OverflowPolicy &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "NO_OVERFLOW")
-        value = octopus::Text::OverflowPolicy::NO_OVERFLOW;
-    else if (str == "CLIP_LINE")
-        value = octopus::Text::OverflowPolicy::CLIP_LINE;
-    else if (str == "EXTEND_LINE")
-        value = octopus::Text::OverflowPolicy::EXTEND_LINE;
-    else if (str == "EXTEND_ALL")
-        value = octopus::Text::OverflowPolicy::EXTEND_ALL;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusText(octopus::Text &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "value") {
-            if (Error error = parseStdString(value.value))
-                return error;
-        } else if (key == "defaultStyle") {
-            if (Error error = parseOctopusTextStyle(value.defaultStyle))
-                return error;
-        } else if (key == "styles") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusStyleRange(value.styles))
-                return error;
-        } else if (key == "transform") {
-            if (Error error = parseDouble_6(value.transform))
-                return error;
-        } else if (key == "frame") {
-            if (Error error = parseNonstdOptionalOctopusTextFrame(value.frame))
-                return error;
-        } else if (key == "horizontalAlign") {
-            if (Error error = parseOctopusTextHorizontalAlign(value.horizontalAlign))
-                return error;
-        } else if (key == "verticalAlign") {
-            if (Error error = parseOctopusTextVerticalAlign(value.verticalAlign))
-                return error;
-        } else if (key == "baselinePolicy") {
-            if (Error error = parseOctopusTextBaselinePolicy(value.baselinePolicy))
-                return error;
-        } else if (key == "overflowPolicy") {
-            if (Error error = parseOctopusTextOverflowPolicy(value.overflowPolicy))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusText(nonstd::optional<octopus::Text> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusText((value = octopus::Text()).value()))
+    else if (Error error = parseStdListOctopusLayer((value = std::list<octopus::Layer>()).value()))
         return error;
     return Error::OK;
 }
@@ -2026,26 +1818,58 @@ Parser::Error::Type Parser::parseOctopusMaskBasis(octopus::MaskBasis &value) {
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "SOLID")
-        value = octopus::MaskBasis::SOLID;
-    else if (str == "BODY")
-        value = octopus::MaskBasis::BODY;
-    else if (str == "BODY_EMBED")
-        value = octopus::MaskBasis::BODY_EMBED;
-    else if (str == "FILL")
-        value = octopus::MaskBasis::FILL;
-    else if (str == "FILL_EMBED")
-        value = octopus::MaskBasis::FILL_EMBED;
-    else if (str == "LAYER_AND_EFFECTS")
-        value = octopus::MaskBasis::LAYER_AND_EFFECTS;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
+    switch (str.size()) {
+        case 4:
+            switch (str[0]) {
+                case 'B':
+                    if (str == "BODY") {
+                        value = octopus::MaskBasis::BODY;
+                        return Error::OK; 
+                    }
+                    break;
+                case 'F':
+                    if (str == "FILL") {
+                        value = octopus::MaskBasis::FILL;
+                        return Error::OK; 
+                    }
+                    break;
+            }
+            break;
+        case 5:
+            if (str == "SOLID") {
+                value = octopus::MaskBasis::SOLID;
+                return Error::OK; 
+            }
+            break;
+        case 10:
+            switch (str[0]) {
+                case 'B':
+                    if (str == "BODY_EMBED") {
+                        value = octopus::MaskBasis::BODY_EMBED;
+                        return Error::OK; 
+                    }
+                    break;
+                case 'F':
+                    if (str == "FILL_EMBED") {
+                        value = octopus::MaskBasis::FILL_EMBED;
+                        return Error::OK; 
+                    }
+                    break;
+            }
+            break;
+        case 17:
+            if (str == "LAYER_AND_EFFECTS") {
+                value = octopus::MaskBasis::LAYER_AND_EFFECTS;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusMaskBasis(nonstd::optional<octopus::MaskBasis> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusMaskBasis((value = octopus::MaskBasis()).value()))
         return error;
@@ -2076,35 +1900,9 @@ Parser::Error::Type Parser::parseStdArrayDouble5(std::array<double, 5> &value) {
 
 Parser::Error::Type Parser::parseNonstdOptionalStdArrayDouble5(nonstd::optional<std::array<double, 5> > &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseStdArrayDouble5((value = std::array<double, 5>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdListOctopusLayer(std::list<octopus::Layer> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusLayer((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdListOctopusLayer(nonstd::optional<std::list<octopus::Layer> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdListOctopusLayer((value = std::list<octopus::Layer>()).value()))
         return error;
     return Error::OK;
 }
@@ -2117,43 +1915,12 @@ Parser::Error::Type Parser::parseStdVectorStdString(std::vector<std::string> &va
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString((value.emplace_back(), value.back())))
+        if (Error::Type error = parseStdString((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange::Subject &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "LAYER")
-        value = octopus::LayerChange::Subject::LAYER;
-    else if (str == "SHAPE")
-        value = octopus::LayerChange::Subject::SHAPE;
-    else if (str == "TEXT")
-        value = octopus::LayerChange::Subject::TEXT;
-    else if (str == "FILL")
-        value = octopus::LayerChange::Subject::FILL;
-    else if (str == "STROKE")
-        value = octopus::LayerChange::Subject::STROKE;
-    else if (str == "STROKE_FILL")
-        value = octopus::LayerChange::Subject::STROKE_FILL;
-    else if (str == "EFFECT")
-        value = octopus::LayerChange::Subject::EFFECT;
-    else if (str == "EFFECT_FILL")
-        value = octopus::LayerChange::Subject::EFFECT_FILL;
-    else if (str == "FILL_FILTER")
-        value = octopus::LayerChange::Subject::FILL_FILTER;
-    else if (str == "STROKE_FILL_FILTER")
-        value = octopus::LayerChange::Subject::STROKE_FILL_FILTER;
-    else if (str == "EFFECT_FILL_FILTER")
-        value = octopus::LayerChange::Subject::EFFECT_FILL_FILTER;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
     return Error::OK;
 }
 
@@ -2161,277 +1928,1689 @@ Parser::Error::Type Parser::parseOctopusLayerChangeOp(octopus::LayerChange::Op &
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "PROPERTY_CHANGE")
-        value = octopus::LayerChange::Op::PROPERTY_CHANGE;
-    else if (str == "INSERT")
-        value = octopus::LayerChange::Op::INSERT;
-    else if (str == "REPLACE")
-        value = octopus::LayerChange::Op::REPLACE;
-    else if (str == "REMOVE")
-        value = octopus::LayerChange::Op::REMOVE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
+    if (str.size() > 2) {
+        switch (str[2]) {
+            case 'M':
+                if (str == "REMOVE") {
+                    value = octopus::LayerChange::Op::REMOVE;
+                    return Error::OK; 
+                }
+                break;
+            case 'O':
+                if (str == "PROPERTY_CHANGE") {
+                    value = octopus::LayerChange::Op::PROPERTY_CHANGE;
+                    return Error::OK; 
+                }
+                break;
+            case 'P':
+                if (str == "REPLACE") {
+                    value = octopus::LayerChange::Op::REPLACE;
+                    return Error::OK; 
+                }
+                break;
+            case 'S':
+                if (str == "INSERT") {
+                    value = octopus::LayerChange::Op::INSERT;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseInt(int &value) {
+    skipWhitespace();
+    return readSigned(value);
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalInt(nonstd::optional<int> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseInt((value = int()).value()))
         return error;
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseNonstdOptionalOctopusFill(nonstd::optional<octopus::Fill> &value) {
+Parser::Error::Type Parser::parseNonstdOptionalOctopusEffectBasis(nonstd::optional<octopus::EffectBasis> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
-    else if (Error error = parseOctopusFill((value = octopus::Fill()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStroke(nonstd::optional<octopus::VectorStroke> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusVectorStroke((value = octopus::VectorStroke()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "OVERLAY")
-        value = octopus::Effect::Type::OVERLAY;
-    else if (str == "STROKE")
-        value = octopus::Effect::Type::STROKE;
-    else if (str == "DROP_SHADOW")
-        value = octopus::Effect::Type::DROP_SHADOW;
-    else if (str == "INNER_SHADOW")
-        value = octopus::Effect::Type::INNER_SHADOW;
-    else if (str == "GAUSSIAN_BLUR")
-        value = octopus::Effect::Type::GAUSSIAN_BLUR;
-    else if (str == "BOUNDED_BLUR")
-        value = octopus::Effect::Type::BOUNDED_BLUR;
-    else if (str == "BLUR")
-        value = octopus::Effect::Type::BLUR;
-    else if (str == "OTHER")
-        value = octopus::Effect::Type::OTHER;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusEffectBasis(octopus::EffectBasis &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "BODY")
-        value = octopus::EffectBasis::BODY;
-    else if (str == "BODY_AND_STROKES")
-        value = octopus::EffectBasis::BODY_AND_STROKES;
-    else if (str == "FILL")
-        value = octopus::EffectBasis::FILL;
-    else if (str == "LAYER_AND_EFFECTS")
-        value = octopus::EffectBasis::LAYER_AND_EFFECTS;
-    else if (str == "BACKGROUND")
-        value = octopus::EffectBasis::BACKGROUND;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusStroke(octopus::Stroke &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "fill") {
-            if (Error error = parseOctopusFill(value.fill))
-                return error;
-        } else if (key == "thickness") {
-            if (Error error = parseDouble(value.thickness))
-                return error;
-        } else if (key == "position") {
-            if (Error error = parseOctopusStrokePosition(value.position))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusStroke(nonstd::optional<octopus::Stroke> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusStroke((value = octopus::Stroke()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusVec2(octopus::Vec2 &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "x") {
-            if (Error error = parseDouble(value.x))
-                return error;
-        } else if (key == "y") {
-            if (Error error = parseDouble(value.y))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusShadow(octopus::Shadow &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "offset") {
-            if (Error error = parseOctopusVec2(value.offset))
-                return error;
-        } else if (key == "blur") {
-            if (Error error = parseDouble(value.blur))
-                return error;
-        } else if (key == "choke") {
-            if (Error error = parseDouble(value.choke))
-                return error;
-        } else if (key == "color") {
-            if (Error error = parseOctopusColor(value.color))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusShadow(nonstd::optional<octopus::Shadow> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusShadow((value = octopus::Shadow()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusEffectType(value.type))
-                return error;
-        } else if (key == "basis") {
-            if (Error error = parseOctopusEffectBasis(value.basis))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "blendMode") {
-            if (Error error = parseOctopusBlendMode(value.blendMode))
-                return error;
-        } else if (key == "overlay") {
-            if (Error error = parseNonstdOptionalOctopusFill(value.overlay))
-                return error;
-        } else if (key == "stroke") {
-            if (Error error = parseNonstdOptionalOctopusStroke(value.stroke))
-                return error;
-        } else if (key == "shadow") {
-            if (Error error = parseNonstdOptionalOctopusShadow(value.shadow))
-                return error;
-        } else if (key == "blur") {
-            if (Error error = parseNonstdOptionalDouble(value.blur))
-                return error;
-        } else if (key == "filters") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusEffect(nonstd::optional<octopus::Effect> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusEffect((value = octopus::Effect()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusFilter(nonstd::optional<octopus::Filter> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusFilter((value = octopus::Filter()).value()))
+    else if (Error error = parseOctopusEffectBasis((value = octopus::EffectBasis()).value()))
         return error;
     return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusBlendMode(nonstd::optional<octopus::BlendMode> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusBlendMode((value = octopus::BlendMode()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalBool(nonstd::optional<bool> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseBool((value = bool()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusFont(octopus::Font &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 5:
+                if (key == "style") {
+                    if (Error error = parseNonstdOptionalStdString(value.style))
+                        return error;
+                    continue;
+                }
+                break;
+            case 6:
+                if (key == "family") {
+                    if (Error error = parseNonstdOptionalStdString(value.family))
+                        return error;
+                    continue;
+                }
+                break;
+            case 14:
+                if (key == "postScriptName") {
+                    if (Error error = parseStdString(value.postScriptName))
+                        return error;
+                    continue;
+                }
+                break;
+            case 23:
+                if (key == "syntheticPostScriptName") {
+                    if (Error error = parseNonstdOptionalBool(value.syntheticPostScriptName))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusFont(nonstd::optional<octopus::Font> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusFont((value = octopus::Font()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusFill(std::vector<octopus::Fill> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusFill((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusFill(nonstd::optional<std::vector<octopus::Fill> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusFill((value = std::vector<octopus::Fill>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorDouble(std::vector<double> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseDouble((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorDouble(nonstd::optional<std::vector<double> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorDouble((value = std::vector<double>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusVectorStrokeLineCap(octopus::VectorStroke::LineCap &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            if (str == "BUTT") {
+                value = octopus::VectorStroke::LineCap::BUTT;
+                return Error::OK; 
+            }
+            break;
+        case 5:
+            if (str == "ROUND") {
+                value = octopus::VectorStroke::LineCap::ROUND;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "SQUARE") {
+                value = octopus::VectorStroke::LineCap::SQUARE;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineCap(nonstd::optional<octopus::VectorStroke::LineCap> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusVectorStrokeLineCap((value = octopus::VectorStroke::LineCap()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusVectorStrokeLineJoin(octopus::VectorStroke::LineJoin &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'B':
+                if (str == "BEVEL") {
+                    value = octopus::VectorStroke::LineJoin::BEVEL;
+                    return Error::OK; 
+                }
+                break;
+            case 'M':
+                if (str == "MITER") {
+                    value = octopus::VectorStroke::LineJoin::MITER;
+                    return Error::OK; 
+                }
+                break;
+            case 'R':
+                if (str == "ROUND") {
+                    value = octopus::VectorStroke::LineJoin::ROUND;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineJoin(nonstd::optional<octopus::VectorStroke::LineJoin> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusVectorStrokeLineJoin((value = octopus::VectorStroke::LineJoin()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusVectorStrokeStyle(octopus::VectorStroke::Style &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 2) {
+        switch (str[2]) {
+            case 'L':
+                if (str == "SOLID") {
+                    value = octopus::VectorStroke::Style::SOLID;
+                    return Error::OK; 
+                }
+                break;
+            case 'S':
+                if (str == "DASHED") {
+                    value = octopus::VectorStroke::Style::DASHED;
+                    return Error::OK; 
+                }
+                break;
+            case 'T':
+                if (str == "DOTTED") {
+                    value = octopus::VectorStroke::Style::DOTTED;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeStyle(nonstd::optional<octopus::VectorStroke::Style> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusVectorStrokeStyle((value = octopus::VectorStroke::Style()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusVectorStroke(octopus::VectorStroke &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'd':
+                    switch (key.size()) {
+                        case 7:
+                            if (key == "dashing") {
+                                if (Error error = parseNonstdOptionalStdVectorDouble(value.dashing))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 10:
+                            if (key == "dashOffset") {
+                                if (Error error = parseNonstdOptionalDouble(value.dashOffset))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'f':
+                    if (key == "fill") {
+                        if (Error error = parseOctopusFill(value.fill))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    switch (key.size()) {
+                        case 7:
+                            if (key == "lineCap") {
+                                if (Error error = parseNonstdOptionalOctopusVectorStrokeLineCap(value.lineCap))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 8:
+                            if (key == "lineJoin") {
+                                if (Error error = parseNonstdOptionalOctopusVectorStrokeLineJoin(value.lineJoin))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'm':
+                    if (key == "miterLimit") {
+                        if (Error error = parseNonstdOptionalDouble(value.miterLimit))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    if (key == "position") {
+                        if (Error error = parseOctopusStrokePosition(value.position))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 's':
+                    if (key == "style") {
+                        if (Error error = parseNonstdOptionalOctopusVectorStrokeStyle(value.style))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "thickness") {
+                        if (Error error = parseDouble(value.thickness))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "visible") {
+                        if (Error error = parseBool(value.visible))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusVectorStroke(std::vector<octopus::VectorStroke> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusVectorStroke((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusVectorStroke(nonstd::optional<std::vector<octopus::VectorStroke> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusVectorStroke((value = std::vector<octopus::VectorStroke>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusOpenTypeFeature(octopus::OpenTypeFeature &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 3:
+                if (key == "tag") {
+                    if (Error error = parseStdString(value.tag))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "value") {
+                    if (Error error = parseInt(value.value))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusOpenTypeFeature(std::vector<octopus::OpenTypeFeature> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusOpenTypeFeature((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOpenTypeFeature(nonstd::optional<std::vector<octopus::OpenTypeFeature> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusOpenTypeFeature((value = std::vector<octopus::OpenTypeFeature>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextStyleLigatures(octopus::TextStyle::Ligatures &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 3:
+            if (str == "ALL") {
+                value = octopus::TextStyle::Ligatures::ALL;
+                return Error::OK; 
+            }
+            break;
+        case 4:
+            if (str == "NONE") {
+                value = octopus::TextStyle::Ligatures::NONE;
+                return Error::OK; 
+            }
+            break;
+        case 8:
+            if (str == "STANDARD") {
+                value = octopus::TextStyle::Ligatures::STANDARD;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLigatures(nonstd::optional<octopus::TextStyle::Ligatures> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusTextStyleLigatures((value = octopus::TextStyle::Ligatures()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextStyleUnderline(octopus::TextStyle::Underline &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'D':
+                if (str == "DOUBLE") {
+                    value = octopus::TextStyle::Underline::DOUBLE;
+                    return Error::OK; 
+                }
+                break;
+            case 'N':
+                if (str == "NONE") {
+                    value = octopus::TextStyle::Underline::NONE;
+                    return Error::OK; 
+                }
+                break;
+            case 'S':
+                if (str == "SINGLE") {
+                    value = octopus::TextStyle::Underline::SINGLE;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleUnderline(nonstd::optional<octopus::TextStyle::Underline> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusTextStyleUnderline((value = octopus::TextStyle::Underline()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextStyleLetterCase(octopus::TextStyle::LetterCase &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'L':
+                if (str == "LOWERCASE") {
+                    value = octopus::TextStyle::LetterCase::LOWERCASE;
+                    return Error::OK; 
+                }
+                break;
+            case 'N':
+                if (str == "NONE") {
+                    value = octopus::TextStyle::LetterCase::NONE;
+                    return Error::OK; 
+                }
+                break;
+            case 'S':
+                if (str == "SMALL_CAPS") {
+                    value = octopus::TextStyle::LetterCase::SMALL_CAPS;
+                    return Error::OK; 
+                }
+                break;
+            case 'T':
+                if (str == "TITLE_CASE") {
+                    value = octopus::TextStyle::LetterCase::TITLE_CASE;
+                    return Error::OK; 
+                }
+                break;
+            case 'U':
+                if (str == "UPPERCASE") {
+                    value = octopus::TextStyle::LetterCase::UPPERCASE;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLetterCase(nonstd::optional<octopus::TextStyle::LetterCase> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusTextStyleLetterCase((value = octopus::TextStyle::LetterCase()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 4:
+                if (key == "font") {
+                    if (Error error = parseNonstdOptionalOctopusFont(value.font))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "fills") {
+                    if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                switch (key[0]) {
+                    case 'k':
+                        if (key == "kerning") {
+                            if (Error error = parseNonstdOptionalBool(value.kerning))
+                                return error;
+                            continue;
+                        }
+                        break;
+                    case 's':
+                        if (key == "strokes") {
+                            if (Error error = parseNonstdOptionalStdVectorOctopusVectorStroke(value.strokes))
+                                return error;
+                            continue;
+                        }
+                        break;
+                }
+                break;
+            case 8:
+                switch (key[1]) {
+                    case 'e':
+                        if (key == "features") {
+                            if (Error error = parseNonstdOptionalStdVectorOctopusOpenTypeFeature(value.features))
+                                return error;
+                            continue;
+                        }
+                        break;
+                    case 'o':
+                        if (key == "fontSize") {
+                            if (Error error = parseNonstdOptionalDouble(value.fontSize))
+                                return error;
+                            continue;
+                        }
+                        break;
+                }
+                break;
+            case 9:
+                switch (key[0]) {
+                    case 'l':
+                        if (key == "ligatures") {
+                            if (Error error = parseNonstdOptionalOctopusTextStyleLigatures(value.ligatures))
+                                return error;
+                            continue;
+                        }
+                        break;
+                    case 'u':
+                        if (key == "underline") {
+                            if (Error error = parseNonstdOptionalOctopusTextStyleUnderline(value.underline))
+                                return error;
+                            continue;
+                        }
+                        break;
+                }
+                break;
+            case 10:
+                switch (key[1]) {
+                    case 'e':
+                        if (key == "letterCase") {
+                            if (Error error = parseNonstdOptionalOctopusTextStyleLetterCase(value.letterCase))
+                                return error;
+                            continue;
+                        }
+                        break;
+                    case 'i':
+                        if (key == "lineHeight") {
+                            if (Error error = parseNonstdOptionalDouble(value.lineHeight))
+                                return error;
+                            continue;
+                        }
+                        break;
+                }
+                break;
+            case 11:
+                if (key == "linethrough") {
+                    if (Error error = parseNonstdOptionalBool(value.linethrough))
+                        return error;
+                    continue;
+                }
+                break;
+            case 13:
+                if (key == "letterSpacing") {
+                    if (Error error = parseNonstdOptionalDouble(value.letterSpacing))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyle(nonstd::optional<octopus::TextStyle> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusTextStyle((value = octopus::TextStyle()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusEffect(nonstd::optional<octopus::Effect> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusEffect((value = octopus::Effect()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusEffect(nonstd::optional<std::vector<octopus::Effect> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusEffect((value = std::vector<octopus::Effect>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusFilter(nonstd::optional<octopus::Filter> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusFilter((value = octopus::Filter()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusShapeFillRule(octopus::Shape::FillRule &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'E':
+                if (str == "EVEN_ODD") {
+                    value = octopus::Shape::FillRule::EVEN_ODD;
+                    return Error::OK; 
+                }
+                break;
+            case 'N':
+                if (str == "NON_ZERO") {
+                    value = octopus::Shape::FillRule::NON_ZERO;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusShapeFillRule(nonstd::optional<octopus::Shape::FillRule> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusShapeFillRule((value = octopus::Shape::FillRule()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusPathOp(octopus::Path::Op &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 5:
+            if (str == "UNION") {
+                value = octopus::Path::Op::UNION;
+                return Error::OK; 
+            }
+            break;
+        case 7:
+            if (str == "EXCLUDE") {
+                value = octopus::Path::Op::EXCLUDE;
+                return Error::OK; 
+            }
+            break;
+        case 8:
+            if (str == "SUBTRACT") {
+                value = octopus::Path::Op::SUBTRACT;
+                return Error::OK; 
+            }
+            break;
+        case 9:
+            if (str == "INTERSECT") {
+                value = octopus::Path::Op::INTERSECT;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusPathOp(nonstd::optional<octopus::Path::Op> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusPathOp((value = octopus::Path::Op()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusPathType(octopus::Path::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            if (str == "PATH") {
+                value = octopus::Path::Type::PATH;
+                return Error::OK; 
+            }
+            break;
+        case 8:
+            if (str == "COMPOUND") {
+                value = octopus::Path::Type::COMPOUND;
+                return Error::OK; 
+            }
+            break;
+        case 9:
+            if (str == "RECTANGLE") {
+                value = octopus::Path::Type::RECTANGLE;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusPath(std::vector<octopus::Path> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusPath((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusPath(nonstd::optional<std::vector<octopus::Path> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusPath((value = std::vector<octopus::Path>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusPath(octopus::Path &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 2:
+                if (key == "op") {
+                    if (Error error = parseNonstdOptionalOctopusPathOp(value.op))
+                        return error;
+                    continue;
+                }
+                break;
+            case 4:
+                if (key == "type") {
+                    if (Error error = parseOctopusPathType(value.type))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "paths") {
+                    if (Error error = parseNonstdOptionalStdVectorOctopusPath(value.paths))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                if (key == "visible") {
+                    if (Error error = parseBool(value.visible))
+                        return error;
+                    continue;
+                }
+                break;
+            case 8:
+                if (key == "geometry") {
+                    if (Error error = parseNonstdOptionalStdString(value.geometry))
+                        return error;
+                    continue;
+                }
+                break;
+            case 9:
+                switch (key[0]) {
+                    case 'r':
+                        if (key == "rectangle") {
+                            if (Error error = parseNonstdOptionalOctopusRectangle(value.rectangle))
+                                return error;
+                            continue;
+                        }
+                        break;
+                    case 't':
+                        if (key == "transform") {
+                            if (Error error = parseDouble_6(value.transform))
+                                return error;
+                            continue;
+                        }
+                        break;
+                }
+                break;
+            case 11:
+                if (key == "cornerRadii") {
+                    if (Error error = parseNonstdOptionalStdVectorDouble(value.cornerRadii))
+                        return error;
+                    continue;
+                }
+                break;
+            case 12:
+                if (key == "cornerRadius") {
+                    if (Error error = parseNonstdOptionalDouble(value.cornerRadius))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusPath(nonstd::optional<octopus::Path> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusPath((value = octopus::Path()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'd':
+                    switch (key.size()) {
+                        case 7:
+                            if (key == "dashing") {
+                                if (Error error = parseNonstdOptionalStdVectorDouble(value.dashing))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 10:
+                            if (key == "dashOffset") {
+                                if (Error error = parseNonstdOptionalDouble(value.dashOffset))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'f':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "fill") {
+                                if (Error error = parseOctopusFill(value.fill))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 8:
+                            if (key == "fillRule") {
+                                if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'l':
+                    switch (key.size()) {
+                        case 7:
+                            if (key == "lineCap") {
+                                if (Error error = parseNonstdOptionalOctopusVectorStrokeLineCap(value.lineCap))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 8:
+                            if (key == "lineJoin") {
+                                if (Error error = parseNonstdOptionalOctopusVectorStrokeLineJoin(value.lineJoin))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'm':
+                    if (key == "miterLimit") {
+                        if (Error error = parseNonstdOptionalDouble(value.miterLimit))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "path") {
+                                if (Error error = parseNonstdOptionalOctopusPath(value.path))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 8:
+                            if (key == "position") {
+                                if (Error error = parseOctopusStrokePosition(value.position))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 's':
+                    if (key == "style") {
+                        if (Error error = parseNonstdOptionalOctopusVectorStrokeStyle(value.style))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "thickness") {
+                        if (Error error = parseDouble(value.thickness))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "visible") {
+                        if (Error error = parseBool(value.visible))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusShapeStroke(std::vector<octopus::Shape::Stroke> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusShapeStroke((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusShape(octopus::Shape &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 4:
+                if (key == "path") {
+                    if (Error error = parseNonstdOptionalOctopusPath(value.path))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "fills") {
+                    if (Error error = parseStdVectorOctopusFill(value.fills))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                if (key == "strokes") {
+                    if (Error error = parseStdVectorOctopusShapeStroke(value.strokes))
+                        return error;
+                    continue;
+                }
+                break;
+            case 8:
+                if (key == "fillRule") {
+                    if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusShape(nonstd::optional<octopus::Shape> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusShape((value = octopus::Shape()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStroke(nonstd::optional<octopus::VectorStroke> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusVectorStroke((value = octopus::VectorStroke()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusStyleRangeRange(octopus::StyleRange::Range &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 2:
+                if (key == "to") {
+                    if (Error error = parseInt(value.to))
+                        return error;
+                    continue;
+                }
+                break;
+            case 4:
+                if (key == "from") {
+                    if (Error error = parseInt(value.from))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusStyleRangeRange(std::vector<octopus::StyleRange::Range> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusStyleRangeRange((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusStyleRange(octopus::StyleRange &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 5:
+                if (key == "style") {
+                    if (Error error = parseOctopusTextStyle(value.style))
+                        return error;
+                    continue;
+                }
+                break;
+            case 6:
+                if (key == "ranges") {
+                    if (Error error = parseStdVectorOctopusStyleRangeRange(value.ranges))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusStyleRange(std::vector<octopus::StyleRange> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusStyleRange((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusStyleRange(nonstd::optional<std::vector<octopus::StyleRange> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusStyleRange((value = std::vector<octopus::StyleRange>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseStdVectorOctopusStroke(std::vector<octopus::Stroke> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusStroke((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusStroke(nonstd::optional<std::vector<octopus::Stroke> > &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseStdVectorOctopusStroke((value = std::vector<octopus::Stroke>()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextBaselinePolicy(octopus::Text::BaselinePolicy &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 3:
+            if (str == "SET") {
+                value = octopus::Text::BaselinePolicy::SET;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "CENTER") {
+                value = octopus::Text::BaselinePolicy::CENTER;
+                return Error::OK; 
+            }
+            break;
+        case 14:
+            if (str == "OFFSET_BEARING") {
+                value = octopus::Text::BaselinePolicy::OFFSET_BEARING;
+                return Error::OK; 
+            }
+            break;
+        case 15:
+            if (str == "OFFSET_ASCENDER") {
+                value = octopus::Text::BaselinePolicy::OFFSET_ASCENDER;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusTextHorizontalAlign(octopus::Text::HorizontalAlign &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            if (str == "LEFT") {
+                value = octopus::Text::HorizontalAlign::LEFT;
+                return Error::OK; 
+            }
+            break;
+        case 5:
+            if (str == "RIGHT") {
+                value = octopus::Text::HorizontalAlign::RIGHT;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "CENTER") {
+                value = octopus::Text::HorizontalAlign::CENTER;
+                return Error::OK; 
+            }
+            break;
+        case 7:
+            if (str == "JUSTIFY") {
+                value = octopus::Text::HorizontalAlign::JUSTIFY;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusTextFrameMode(octopus::TextFrame::Mode &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 5:
+            if (str == "FIXED") {
+                value = octopus::TextFrame::Mode::FIXED;
+                return Error::OK; 
+            }
+            break;
+        case 10:
+            if (str == "AUTO_WIDTH") {
+                value = octopus::TextFrame::Mode::AUTO_WIDTH;
+                return Error::OK; 
+            }
+            break;
+        case 11:
+            if (str == "AUTO_HEIGHT") {
+                value = octopus::TextFrame::Mode::AUTO_HEIGHT;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusDimensions(octopus::Dimensions &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 5:
+                if (key == "width") {
+                    if (Error error = parseDouble(value.width))
+                        return error;
+                    continue;
+                }
+                break;
+            case 6:
+                if (key == "height") {
+                    if (Error error = parseDouble(value.height))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusDimensions(nonstd::optional<octopus::Dimensions> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusDimensions((value = octopus::Dimensions()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextFrame(octopus::TextFrame &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'm':
+                    if (key == "mode") {
+                        if (Error error = parseOctopusTextFrameMode(value.mode))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 's':
+                    if (key == "size") {
+                        if (Error error = parseNonstdOptionalOctopusDimensions(value.size))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusTextFrame(nonstd::optional<octopus::TextFrame> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusTextFrame((value = octopus::TextFrame()).value()))
+        return error;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusTextOverflowPolicy(octopus::Text::OverflowPolicy &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 7) {
+        switch (str[7]) {
+            case 'A':
+                if (str == "EXTEND_ALL") {
+                    value = octopus::Text::OverflowPolicy::EXTEND_ALL;
+                    return Error::OK; 
+                }
+                break;
+            case 'F':
+                if (str == "NO_OVERFLOW") {
+                    value = octopus::Text::OverflowPolicy::NO_OVERFLOW;
+                    return Error::OK; 
+                }
+                break;
+            case 'L':
+                if (str == "EXTEND_LINE") {
+                    value = octopus::Text::OverflowPolicy::EXTEND_LINE;
+                    return Error::OK; 
+                }
+                break;
+            case 'N':
+                if (str == "CLIP_LINE") {
+                    value = octopus::Text::OverflowPolicy::CLIP_LINE;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusTextVerticalAlign(octopus::Text::VerticalAlign &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'B':
+                if (str == "BOTTOM") {
+                    value = octopus::Text::VerticalAlign::BOTTOM;
+                    return Error::OK; 
+                }
+                break;
+            case 'C':
+                if (str == "CENTER") {
+                    value = octopus::Text::VerticalAlign::CENTER;
+                    return Error::OK; 
+                }
+                break;
+            case 'T':
+                if (str == "TOP") {
+                    value = octopus::Text::VerticalAlign::TOP;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+Parser::Error::Type Parser::parseOctopusText(octopus::Text &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 3) {
+            switch (key[3]) {
+                case 'a':
+                    if (key == "defaultStyle") {
+                        if (Error error = parseOctopusTextStyle(value.defaultStyle))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'e':
+                    if (key == "baselinePolicy") {
+                        if (Error error = parseOctopusTextBaselinePolicy(value.baselinePolicy))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "horizontalAlign") {
+                        if (Error error = parseOctopusTextHorizontalAlign(value.horizontalAlign))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "styles") {
+                        if (Error error = parseNonstdOptionalStdVectorOctopusStyleRange(value.styles))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'm':
+                    if (key == "frame") {
+                        if (Error error = parseNonstdOptionalOctopusTextFrame(value.frame))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "transform") {
+                        if (Error error = parseDouble_6(value.transform))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'r':
+                    if (key == "overflowPolicy") {
+                        if (Error error = parseOctopusTextOverflowPolicy(value.overflowPolicy))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "verticalAlign") {
+                        if (Error error = parseOctopusTextVerticalAlign(value.verticalAlign))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'u':
+                    if (key == "value") {
+                        if (Error error = parseStdString(value.value))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+Parser::Error::Type Parser::parseNonstdOptionalOctopusText(nonstd::optional<octopus::Text> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusText((value = octopus::Text()).value()))
         return error;
     return Error::OK;
 }
@@ -2460,79 +3639,9 @@ Parser::Error::Type Parser::parseStdArrayDouble6(std::array<double, 6> &value) {
 
 Parser::Error::Type Parser::parseNonstdOptionalStdArrayDouble6(nonstd::optional<std::array<double, 6> > &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseStdArrayDouble6((value = std::array<double, 6>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusEffect(std::vector<octopus::Effect> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusEffect((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusEffect(nonstd::optional<std::vector<octopus::Effect> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusEffect((value = std::vector<octopus::Effect>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusEffectBasis(nonstd::optional<octopus::EffectBasis> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusEffectBasis((value = octopus::EffectBasis()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseStdVectorOctopusStroke(std::vector<octopus::Stroke> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusStroke((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusStroke(nonstd::optional<std::vector<octopus::Stroke> > &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseStdVectorOctopusStroke((value = std::vector<octopus::Stroke>()).value()))
-        return error;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyle(nonstd::optional<octopus::TextStyle> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusTextStyle((value = octopus::TextStyle()).value()))
         return error;
     return Error::OK;
 }
@@ -2542,97 +3651,319 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "fill") {
-            if (Error error = parseNonstdOptionalOctopusFill(value.fill))
-                return error;
-        } else if (key == "stroke") {
-            if (Error error = parseNonstdOptionalOctopusVectorStroke(value.stroke))
-                return error;
-        } else if (key == "effect") {
-            if (Error error = parseNonstdOptionalOctopusEffect(value.effect))
-                return error;
-        } else if (key == "filter") {
-            if (Error error = parseNonstdOptionalOctopusFilter(value.filter))
-                return error;
-        } else if (key == "shape") {
-            if (Error error = parseNonstdOptionalOctopusShape(value.shape))
-                return error;
-        } else if (key == "text") {
-            if (Error error = parseNonstdOptionalOctopusText(value.text))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseNonstdOptionalBool(value.visible))
-                return error;
-        } else if (key == "opacity") {
-            if (Error error = parseNonstdOptionalDouble(value.opacity))
-                return error;
-        } else if (key == "blendMode") {
-            if (Error error = parseNonstdOptionalOctopusBlendMode(value.blendMode))
-                return error;
-        } else if (key == "transform") {
-            if (Error error = parseNonstdOptionalStdArrayDouble6(value.transform))
-                return error;
-        } else if (key == "featureScale") {
-            if (Error error = parseNonstdOptionalDouble(value.featureScale))
-                return error;
-        } else if (key == "maskBasis") {
-            if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
-                return error;
-        } else if (key == "maskChannels") {
-            if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseNonstdOptionalStdString(value.name))
-                return error;
-        } else if (key == "componentId") {
-            if (Error error = parseNonstdOptionalStdString(value.componentId))
-                return error;
-        } else if (key == "effects") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusEffect(value.effects))
-                return error;
-        } else if (key == "basis") {
-            if (Error error = parseNonstdOptionalOctopusEffectBasis(value.basis))
-                return error;
-        } else if (key == "filters") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
-                return error;
-        } else if (key == "fills") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))
-                return error;
-        } else if (key == "strokes") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusStroke(value.strokes))
-                return error;
-        } else if (key == "fillRule") {
-            if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
-                return error;
-        } else if (key == "path") {
-            if (Error error = parseNonstdOptionalOctopusPath(value.path))
-                return error;
-        } else if (key == "value") {
-            if (Error error = parseNonstdOptionalStdString(value.value))
-                return error;
-        } else if (key == "defaultStyle") {
-            if (Error error = parseNonstdOptionalOctopusTextStyle(value.defaultStyle))
-                return error;
-        } else if (key == "styles") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusStyleRange(value.styles))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'b':
+                    switch (key.size()) {
+                        case 5:
+                            if (key == "basis") {
+                                if (Error error = parseNonstdOptionalOctopusEffectBasis(value.basis))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "blendMode") {
+                                if (Error error = parseNonstdOptionalOctopusBlendMode(value.blendMode))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'c':
+                    if (key == "componentId") {
+                        if (Error error = parseNonstdOptionalStdString(value.componentId))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'd':
+                    if (key == "defaultStyle") {
+                        if (Error error = parseNonstdOptionalOctopusTextStyle(value.defaultStyle))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'e':
+                    switch (key.size()) {
+                        case 6:
+                            if (key == "effect") {
+                                if (Error error = parseNonstdOptionalOctopusEffect(value.effect))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 7:
+                            if (key == "effects") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusEffect(value.effects))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'f':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "fill") {
+                                if (Error error = parseNonstdOptionalOctopusFill(value.fill))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 5:
+                            if (key == "fills") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 6:
+                            if (key == "filter") {
+                                if (Error error = parseNonstdOptionalOctopusFilter(value.filter))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 7:
+                            if (key == "filters") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 8:
+                            if (key == "fillRule") {
+                                if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 12:
+                            if (key == "featureScale") {
+                                if (Error error = parseNonstdOptionalDouble(value.featureScale))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'm':
+                    switch (key.size()) {
+                        case 9:
+                            if (key == "maskBasis") {
+                                if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 12:
+                            if (key == "maskChannels") {
+                                if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseNonstdOptionalStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'o':
+                    if (key == "opacity") {
+                        if (Error error = parseNonstdOptionalDouble(value.opacity))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    if (key == "path") {
+                        if (Error error = parseNonstdOptionalOctopusPath(value.path))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 's':
+                    switch (key.size()) {
+                        case 5:
+                            if (key == "shape") {
+                                if (Error error = parseNonstdOptionalOctopusShape(value.shape))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 6:
+                            switch (key[2]) {
+                                case 'r':
+                                    if (key == "stroke") {
+                                        if (Error error = parseNonstdOptionalOctopusVectorStroke(value.stroke))
+                                            return error;
+                                        continue;
+                                    }
+                                    break;
+                                case 'y':
+                                    if (key == "styles") {
+                                        if (Error error = parseNonstdOptionalStdVectorOctopusStyleRange(value.styles))
+                                            return error;
+                                        continue;
+                                    }
+                                    break;
+                            }
+                            break;
+                        case 7:
+                            if (key == "strokes") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusStroke(value.strokes))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 't':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "text") {
+                                if (Error error = parseNonstdOptionalOctopusText(value.text))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "transform") {
+                                if (Error error = parseNonstdOptionalStdArrayDouble6(value.transform))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'v':
+                    switch (key.size()) {
+                        case 5:
+                            if (key == "value") {
+                                if (Error error = parseNonstdOptionalStdString(value.value))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 7:
+                            if (key == "visible") {
+                                if (Error error = parseNonstdOptionalBool(value.visible))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
     return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange::Subject &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 1) {
+        switch (str[1]) {
+            case 'A':
+                if (str == "LAYER") {
+                    value = octopus::LayerChange::Subject::LAYER;
+                    return Error::OK; 
+                }
+                break;
+            case 'E':
+                if (str == "TEXT") {
+                    value = octopus::LayerChange::Subject::TEXT;
+                    return Error::OK; 
+                }
+                break;
+            case 'F':
+                switch (str.size()) {
+                    case 6:
+                        if (str == "EFFECT") {
+                            value = octopus::LayerChange::Subject::EFFECT;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 11:
+                        if (str == "EFFECT_FILL") {
+                            value = octopus::LayerChange::Subject::EFFECT_FILL;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 18:
+                        if (str == "EFFECT_FILL_FILTER") {
+                            value = octopus::LayerChange::Subject::EFFECT_FILL_FILTER;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'H':
+                if (str == "SHAPE") {
+                    value = octopus::LayerChange::Subject::SHAPE;
+                    return Error::OK; 
+                }
+                break;
+            case 'I':
+                switch (str.size()) {
+                    case 4:
+                        if (str == "FILL") {
+                            value = octopus::LayerChange::Subject::FILL;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 11:
+                        if (str == "FILL_FILTER") {
+                            value = octopus::LayerChange::Subject::FILL_FILTER;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+            case 'T':
+                switch (str.size()) {
+                    case 6:
+                        if (str == "STROKE") {
+                            value = octopus::LayerChange::Subject::STROKE;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 11:
+                        if (str == "STROKE_FILL") {
+                            value = octopus::LayerChange::Subject::STROKE_FILL;
+                            return Error::OK; 
+                        }
+                        break;
+                    case 18:
+                        if (str == "STROKE_FILL_FILTER") {
+                            value = octopus::LayerChange::Subject::STROKE_FILL_FILTER;
+                            return Error::OK; 
+                        }
+                        break;
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseOctopusLayerChange(octopus::LayerChange &value) {
@@ -2640,33 +3971,52 @@ Parser::Error::Type Parser::parseOctopusLayerChange(octopus::LayerChange &value)
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "subject") {
-            if (Error error = parseOctopusLayerChangeSubject(value.subject))
-                return error;
-        } else if (key == "op") {
-            if (Error error = parseOctopusLayerChangeOp(value.op))
-                return error;
-        } else if (key == "index") {
-            if (Error error = parseNonstdOptionalInt(value.index))
-                return error;
-        } else if (key == "filterIndex") {
-            if (Error error = parseNonstdOptionalInt(value.filterIndex))
-                return error;
-        } else if (key == "values") {
-            if (Error error = parseOctopusLayerChangeValues(value.values))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 2:
+                if (key == "op") {
+                    if (Error error = parseOctopusLayerChangeOp(value.op))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "index") {
+                    if (Error error = parseNonstdOptionalInt(value.index))
+                        return error;
+                    continue;
+                }
+                break;
+            case 6:
+                if (key == "values") {
+                    if (Error error = parseOctopusLayerChangeValues(value.values))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                if (key == "subject") {
+                    if (Error error = parseOctopusLayerChangeSubject(value.subject))
+                        return error;
+                    continue;
+                }
+                break;
+            case 11:
+                if (key == "filterIndex") {
+                    if (Error error = parseNonstdOptionalInt(value.filterIndex))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -2681,7 +4031,7 @@ Parser::Error::Type Parser::parseStdVectorOctopusLayerChange(std::vector<octopus
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusLayerChange((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusLayerChange((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -2695,24 +4045,31 @@ Parser::Error::Type Parser::parseOctopusOverride(octopus::Override &value) {
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "target") {
-            if (Error error = parseStdVectorStdString(value.target))
-                return error;
-        } else if (key == "changes") {
-            if (Error error = parseStdVectorOctopusLayerChange(value.changes))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 6:
+                if (key == "target") {
+                    if (Error error = parseStdVectorStdString(value.target))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                if (key == "changes") {
+                    if (Error error = parseStdVectorOctopusLayerChange(value.changes))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -2727,7 +4084,7 @@ Parser::Error::Type Parser::parseStdVectorOctopusOverride(std::vector<octopus::O
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusOverride((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusOverride((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -2738,11 +4095,60 @@ Parser::Error::Type Parser::parseStdVectorOctopusOverride(std::vector<octopus::O
 
 Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOverride(nonstd::optional<std::vector<octopus::Override> > &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseStdVectorOctopusOverride((value = std::vector<octopus::Override>()).value()))
         return error;
     return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusLayerType(octopus::Layer::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 4:
+            if (str == "TEXT") {
+                value = octopus::Layer::Type::TEXT;
+                return Error::OK; 
+            }
+            break;
+        case 5:
+            switch (str[0]) {
+                case 'G':
+                    if (str == "GROUP") {
+                        value = octopus::Layer::Type::GROUP;
+                        return Error::OK; 
+                    }
+                    break;
+                case 'S':
+                    if (str == "SHAPE") {
+                        value = octopus::Layer::Type::SHAPE;
+                        return Error::OK; 
+                    }
+                    break;
+            }
+            break;
+        case 10:
+            if (str == "MASK_GROUP") {
+                value = octopus::Layer::Type::MASK_GROUP;
+                return Error::OK; 
+            }
+            break;
+        case 18:
+            if (str == "COMPONENT_INSTANCE") {
+                value = octopus::Layer::Type::COMPONENT_INSTANCE;
+                return Error::OK; 
+            }
+            break;
+        case 19:
+            if (str == "COMPONENT_REFERENCE") {
+                value = octopus::Layer::Type::COMPONENT_REFERENCE;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
@@ -2750,69 +4156,152 @@ Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "type") {
-            if (Error error = parseOctopusLayerType(value.type))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "visible") {
-            if (Error error = parseBool(value.visible))
-                return error;
-        } else if (key == "opacity") {
-            if (Error error = parseDouble(value.opacity))
-                return error;
-        } else if (key == "blendMode") {
-            if (Error error = parseOctopusBlendMode(value.blendMode))
-                return error;
-        } else if (key == "transform") {
-            if (Error error = parseDouble_6(value.transform))
-                return error;
-        } else if (key == "featureScale") {
-            if (Error error = parseNonstdOptionalDouble(value.featureScale))
-                return error;
-        } else if (key == "shape") {
-            if (Error error = parseNonstdOptionalOctopusShape(value.shape))
-                return error;
-        } else if (key == "text") {
-            if (Error error = parseNonstdOptionalOctopusText(value.text))
-                return error;
-        } else if (key == "mask") {
-            if (Error error = parseNonstdOptionalPtrOctopusLayer(value.mask))
-                return error;
-        } else if (key == "maskBasis") {
-            if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
-                return error;
-        } else if (key == "maskChannels") {
-            if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
-                return error;
-        } else if (key == "layers") {
-            if (Error error = parseNonstdOptionalStdListOctopusLayer(value.layers))
-                return error;
-        } else if (key == "componentId") {
-            if (Error error = parseNonstdOptionalStdString(value.componentId))
-                return error;
-        } else if (key == "overrides") {
-            if (Error error = parseNonstdOptionalStdVectorOctopusOverride(value.overrides))
-                return error;
-        } else if (key == "effects") {
-            if (Error error = parseStdVectorOctopusEffect(value.effects))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'b':
+                    if (key == "blendMode") {
+                        if (Error error = parseOctopusBlendMode(value.blendMode))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'c':
+                    if (key == "componentId") {
+                        if (Error error = parseNonstdOptionalStdString(value.componentId))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'e':
+                    if (key == "effects") {
+                        if (Error error = parseStdVectorOctopusEffect(value.effects))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'f':
+                    if (key == "featureScale") {
+                        if (Error error = parseNonstdOptionalDouble(value.featureScale))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "id") {
+                        if (Error error = parseStdString(value.id))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "layers") {
+                        if (Error error = parseNonstdOptionalStdListOctopusLayer(value.layers))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'm':
+                    switch (key.size()) {
+                        case 4:
+                            if (key == "mask") {
+                                if (Error error = parseNonstdOptionalPtrOctopusLayer(value.mask))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "maskBasis") {
+                                if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 12:
+                            if (key == "maskChannels") {
+                                if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'o':
+                    switch (key.size()) {
+                        case 7:
+                            if (key == "opacity") {
+                                if (Error error = parseDouble(value.opacity))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "overrides") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusOverride(value.overrides))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 's':
+                    if (key == "shape") {
+                        if (Error error = parseNonstdOptionalOctopusShape(value.shape))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key.size() > 1) {
+                        switch (key[1]) {
+                            case 'e':
+                                if (key == "text") {
+                                    if (Error error = parseNonstdOptionalOctopusText(value.text))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                            case 'r':
+                                if (key == "transform") {
+                                    if (Error error = parseDouble_6(value.transform))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                            case 'y':
+                                if (key == "type") {
+                                    if (Error error = parseOctopusLayerType(value.type))
+                                        return error;
+                                    continue;
+                                }
+                                break;
+                        }
+                    }
+                    break;
+                case 'v':
+                    if (key == "visible") {
+                        if (Error error = parseBool(value.visible))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -2821,11 +4310,22 @@ Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
 
 Parser::Error::Type Parser::parseNonstdOptionalPtrOctopusLayer(nonstd::optional_ptr<octopus::Layer> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusLayer(*(value = new octopus::Layer())))
         return error;
     return Error::OK;
+}
+
+Parser::Error::Type Parser::parseOctopusOctopusType(octopus::Octopus::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str == "OCTOPUS_COMPONENT") {
+        value = octopus::Octopus::Type::OCTOPUS_COMPONENT;
+        return Error::OK; 
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 Parser::Error::Type Parser::parseOctopusOctopus(octopus::Octopus &value) {
@@ -2833,33 +4333,54 @@ Parser::Error::Type Parser::parseOctopusOctopus(octopus::Octopus &value) {
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusOctopusType(value.type))
-                return error;
-        } else if (key == "version") {
-            if (Error error = parseStdString(value.version))
-                return error;
-        } else if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "dimensions") {
-            if (Error error = parseNonstdOptionalOctopusDimensions(value.dimensions))
-                return error;
-        } else if (key == "content") {
-            if (Error error = parseNonstdOptionalPtrOctopusLayer(value.content))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'c':
+                    if (key == "content") {
+                        if (Error error = parseNonstdOptionalPtrOctopusLayer(value.content))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'd':
+                    if (key == "dimensions") {
+                        if (Error error = parseNonstdOptionalOctopusDimensions(value.dimensions))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "id") {
+                        if (Error error = parseStdString(value.id))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "type") {
+                        if (Error error = parseOctopusOctopusType(value.type))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "version") {
+                        if (Error error = parseStdString(value.version))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;

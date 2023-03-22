@@ -29,6 +29,7 @@ public:
 
     static Error serialize(std::string &jsonString, octopus::Octopus const &input);
     static Error serialize(std::string &jsonString, octopus::Layer const &input);
+    static Error serialize(std::string &jsonString, octopus::LayerChange const &input);
 
 protected:
     std::string &json;

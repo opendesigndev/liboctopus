@@ -66,7 +66,8 @@
         "name": "octopus::Serializer",
         "types": [
             "octopus::Octopus",
-            "octopus::Layer"
+            "octopus::Layer",
+            "octopus::LayerChange"
         ],
         "replacementIncludes": [
             "<nonstd/serialize_float.hpp>",
