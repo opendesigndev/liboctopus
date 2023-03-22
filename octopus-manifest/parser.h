@@ -23,7 +23,7 @@ public:
             VALUE_OUT_OF_RANGE,
             STRING_EXPECTED,
             UTF16_ENCODING_ERROR
-        } type; 
+        } type;
         int position;
 
         inline Error(Type type = Error::OK, int position = -1) : type(type), position(position) { }
@@ -47,22 +47,9 @@ protected:
     static int decodeHexDigit(char digit);
 
     Error::Type parseStdString(std::string &value);
-    Error::Type parseOctopusOctopusManifestOrigin(octopus::OctopusManifest::Origin &value);
-    Error::Type parseOctopusReferenceType(octopus::Reference::Type &value);
-    Error::Type parseOctopusReference(octopus::Reference &value);
-    Error::Type parseStdVectorOctopusReference(std::vector<octopus::Reference> &value);
     Error::Type parseNonstdOptionalStdString(nonstd::optional<std::string> &value);
-    Error::Type parseOctopusPage(octopus::Page &value);
-    Error::Type parseStdVectorOctopusPage(std::vector<octopus::Page> &value);
-    Error::Type parseOctopusComponentRole(octopus::Component::Role &value);
-    Error::Type parseDouble(double &value);
-    Error::Type parseOctopusBounds(octopus::Bounds &value);
     Error::Type parseOctopusResourceLocationType(octopus::ResourceLocation::Type &value);
     Error::Type parseOctopusResourceLocation(octopus::ResourceLocation &value);
-    Error::Type parseOctopusArtifactType(octopus::Artifact::Type &value);
-    Error::Type parseOctopusArtifact(octopus::Artifact &value);
-    Error::Type parseStdVectorOctopusArtifact(std::vector<octopus::Artifact> &value);
-    Error::Type parseNonstdOptionalOctopusReference(nonstd::optional<octopus::Reference> &value);
     Error::Type parseNonstdOptionalOctopusResourceLocation(nonstd::optional<octopus::ResourceLocation> &value);
     Error::Type parseOctopusAssetFont(octopus::AssetFont &value);
     Error::Type parseStdVectorOctopusAssetFont(std::vector<octopus::AssetFont> &value);
@@ -70,25 +57,38 @@ protected:
     Error::Type parseStdVectorOctopusAssetImage(std::vector<octopus::AssetImage> &value);
     Error::Type parseOctopusAssets(octopus::Assets &value);
     Error::Type parseNonstdOptionalOctopusAssets(nonstd::optional<octopus::Assets> &value);
-    Error::Type parseOctopusComponentSet(octopus::ComponentSet &value);
-    Error::Type parseStdMapStdStringStdString(std::map<std::string, std::string> &value);
-    Error::Type parseOctopusComponentVariantMeta(octopus::Component::VariantMeta &value);
-    Error::Type parseNonstdOptionalOctopusComponentVariantMeta(nonstd::optional<octopus::Component::VariantMeta> &value);
-    Error::Type parseOctopusStatusValue(octopus::Status::Value &value);
+    Error::Type parseOctopusArtifactType(octopus::Artifact::Type &value);
+    Error::Type parseOctopusArtifact(octopus::Artifact &value);
+    Error::Type parseStdVectorOctopusArtifact(std::vector<octopus::Artifact> &value);
     Error::Type parseInt(int &value);
     Error::Type parseStdVectorStdString(std::vector<std::string> &value);
     Error::Type parseOctopusStatusError(octopus::Status::Error &value);
     Error::Type parseNonstdOptionalOctopusStatusError(nonstd::optional<octopus::Status::Error> &value);
+    Error::Type parseDouble(double &value);
     Error::Type parseNonstdOptionalDouble(nonstd::optional<double> &value);
+    Error::Type parseOctopusStatusValue(octopus::Status::Value &value);
     Error::Type parseOctopusStatus(octopus::Status &value);
     Error::Type parseNonstdOptionalOctopusStatus(nonstd::optional<octopus::Status> &value);
+    Error::Type parseOctopusChunkType(octopus::Chunk::Type &value);
+    Error::Type parseOctopusChunk(octopus::Chunk &value);
+    Error::Type parseStdVectorOctopusChunk(std::vector<octopus::Chunk> &value);
+    Error::Type parseOctopusBounds(octopus::Bounds &value);
+    Error::Type parseOctopusReferenceType(octopus::Reference::Type &value);
+    Error::Type parseOctopusReference(octopus::Reference &value);
+    Error::Type parseStdVectorOctopusReference(std::vector<octopus::Reference> &value);
+    Error::Type parseNonstdOptionalOctopusReference(nonstd::optional<octopus::Reference> &value);
+    Error::Type parseOctopusComponentRole(octopus::Component::Role &value);
+    Error::Type parseOctopusComponentSet(octopus::ComponentSet &value);
+    Error::Type parseStdMapStdStringStdString(std::map<std::string, std::string> &value);
+    Error::Type parseOctopusComponentVariantMeta(octopus::Component::VariantMeta &value);
+    Error::Type parseNonstdOptionalOctopusComponentVariantMeta(nonstd::optional<octopus::Component::VariantMeta> &value);
     Error::Type parseOctopusComponent(octopus::Component &value);
     Error::Type parseStdVectorOctopusComponent(std::vector<octopus::Component> &value);
     Error::Type parseOctopusLibrary(octopus::Library &value);
     Error::Type parseStdVectorOctopusLibrary(std::vector<octopus::Library> &value);
-    Error::Type parseOctopusChunkType(octopus::Chunk::Type &value);
-    Error::Type parseOctopusChunk(octopus::Chunk &value);
-    Error::Type parseStdVectorOctopusChunk(std::vector<octopus::Chunk> &value);
+    Error::Type parseOctopusOctopusManifestOrigin(octopus::OctopusManifest::Origin &value);
+    Error::Type parseOctopusPage(octopus::Page &value);
+    Error::Type parseStdVectorOctopusPage(std::vector<octopus::Page> &value);
     Error::Type parseOctopusOctopusManifest(octopus::OctopusManifest &value);
 
 private:

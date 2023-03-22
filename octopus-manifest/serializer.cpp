@@ -100,7 +100,7 @@ ManifestSerializer::Error ManifestSerializer::serialize(std::string &jsonString,
 
 ManifestSerializer::Error ManifestSerializer::serializeStdString(std::string const &value) {
     write('"');
-    for (char c : value) { writeEscaped(c); }
+    for (std::string::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { char c = *i; writeEscaped(c); }
     write('"');
     return Error::OK;
 }
@@ -141,7 +141,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusReference(octopus:
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusReference(std::vector<octopus::Reference> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Reference const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusReference(elem)) return error; }
+    for (std::vector<octopus::Reference>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Reference const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusReference(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -173,7 +173,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusPage(octopus::Page
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusPage(std::vector<octopus::Page> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Page const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusPage(elem)) return error; }
+    for (std::vector<octopus::Page>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Page const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusPage(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -287,7 +287,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusArtifact(octopus::
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusArtifact(std::vector<octopus::Artifact> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Artifact const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusArtifact(elem)) return error; }
+    for (std::vector<octopus::Artifact>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Artifact const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusArtifact(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -324,7 +324,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusAssetFont(octopus:
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusAssetFont(std::vector<octopus::AssetFont> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::AssetFont const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusAssetFont(elem)) return error; }
+    for (std::vector<octopus::AssetFont>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::AssetFont const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusAssetFont(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -346,7 +346,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusAssetImage(octopus
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusAssetImage(std::vector<octopus::AssetImage> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::AssetImage const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusAssetImage(elem)) return error; }
+    for (std::vector<octopus::AssetImage>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::AssetImage const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusAssetImage(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -381,7 +381,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentSet(octop
 ManifestSerializer::Error ManifestSerializer::serializeStdMapStdStringStdString(std::map<std::string, std::string> const &value) {
     bool prev = false;
     write('{');
-    for (const std::pair<std::string, std::string> &i : value) { std::string const &key = i.first; std::string const &elem = i.second; if (prev) write(','); prev = true; if (Error error = serializeStdString(key)) return error; write(':'); if (Error error = serializeStdString(elem)) return error; }
+    for (std::map<std::string, std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &key = i->first; std::string const &elem = i->second; if (prev) write(','); prev = true; if (Error error = serializeStdString(key)) return error; write(':'); if (Error error = serializeStdString(elem)) return error; }
     write('}');
     return Error::OK;
 }
@@ -422,7 +422,7 @@ ManifestSerializer::Error ManifestSerializer::serializeInt(int const &value) {
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorStdString(std::vector<std::string> const &value) {
     bool prev = false;
     write('[');
-    for (std::string const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeStdString(elem)) return error; }
+    for (std::vector<std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeStdString(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -523,7 +523,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusComponent(octopus:
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusComponent(std::vector<octopus::Component> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Component const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusComponent(elem)) return error; }
+    for (std::vector<octopus::Component>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Component const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusComponent(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -570,7 +570,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusLibrary(octopus::L
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusLibrary(std::vector<octopus::Library> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Library const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusLibrary(elem)) return error; }
+    for (std::vector<octopus::Library>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Library const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusLibrary(elem)) return error; }
     write(']');
     return Error::OK;
 }
@@ -636,7 +636,7 @@ ManifestSerializer::Error ManifestSerializer::serializeOctopusChunk(octopus::Chu
 ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusChunk(std::vector<octopus::Chunk> const &value) {
     bool prev = false;
     write('[');
-    for (octopus::Chunk const &elem : value) { if (prev) write(','); prev = true; if (Error error = serializeOctopusChunk(elem)) return error; }
+    for (std::vector<octopus::Chunk>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Chunk const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusChunk(elem)) return error; }
     write(']');
     return Error::OK;
 }

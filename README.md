@@ -22,7 +22,7 @@ To parse data from JSON, call:
 
 ```c++
 // XyzParser is either Parser or ManifestParser
-octopus::XyzParser::Error error = octopus::Parser::parse(
+octopus::XyzParser::Error error = octopus::XyzParser::parse(
     outputDataStructure, // An output data structure supported by the parser
     jsonString // (const char *) A null-terminated UTF-8 JSON string
 );

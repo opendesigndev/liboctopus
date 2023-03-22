@@ -5,6 +5,10 @@
 #include <cstdlib>
 #include "parser.h"
 
+#ifndef JSON_CPP_MAX_INTEGER
+#define JSON_CPP_MAX_INTEGER(T) ((T) ~(((T) ~(T) 0 <= (T) 0 ? -2 : 0)*((T) 1<<(8*sizeof(T)-2))))
+#endif
+
 namespace octopus {
 
 ManifestParser::Error::operator ManifestParser::Error::Type() const {
@@ -105,7 +109,7 @@ bool ManifestParser::readHexQuad(int &value) {
         (value += 0x0010*decodeHexDigit(cur[2])) >= 0 &&
         (value += 0x0100*decodeHexDigit(cur[1])) >= 0 &&
         (value += 0x1000*decodeHexDigit(cur[0])) >= 0 &&
-        (cur += 4)
+        (cur += 4, true)
     );
 }
 
@@ -198,9 +202,9 @@ ManifestParser::Error::Type ManifestParser::readSigned(T &value) {
     else
         return Error::TYPE_MISMATCH;
     while (*cur >= '0' && *cur <= '9') {
-        if (10*value < value)
+        if (value < 0 || (value >= JSON_CPP_MAX_INTEGER(T)/10 && (value > JSON_CPP_MAX_INTEGER(T)/10 || (static_cast<T>(10*value+(*cur-'0')) < value && (!negative || *cur-'0' != (JSON_CPP_MAX_INTEGER(T)-9)%10)))))
             return Error::VALUE_OUT_OF_RANGE;
-        value = 10*value+(*cur++-'0');
+        value = static_cast<T>(10*value+(*cur++-'0'));
     }
     if (negative)
         value = -value;
@@ -214,11 +218,9 @@ ManifestParser::Error ManifestParser::parse(octopus::OctopusManifest &output, co
 }
 
 ManifestParser::Error::Type ManifestParser::parseStdString(std::string &value) {
-    skipWhitespace();
-    if (*cur != '"')
+    if (!matchSymbol('"'))
         return Error::STRING_EXPECTED;
     value.clear();
-    ++cur;
     while (*cur != '"') {
         if (*cur == '\\') {
             char buffer[8];
@@ -236,218 +238,12 @@ ManifestParser::Error::Type ManifestParser::parseStdString(std::string &value) {
     return Error::OK;
 }
 
-ManifestParser::Error::Type ManifestParser::parseOctopusOctopusManifestOrigin(octopus::OctopusManifest::Origin &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "version") {
-            if (Error error = parseStdString(value.version))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusReferenceType(octopus::Reference::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "CHUNK")
-        value = octopus::Reference::Type::CHUNK;
-    else if (str == "COMPONENT")
-        value = octopus::Reference::Type::COMPONENT;
-    else if (str == "ARTBOARD")
-        value = octopus::Reference::Type::ARTBOARD;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusReference(octopus::Reference &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusReferenceType(value.type))
-                return error;
-        } else if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusReference(std::vector<octopus::Reference> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusReference((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
 ManifestParser::Error::Type ManifestParser::parseNonstdOptionalStdString(nonstd::optional<std::string> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseStdString((value = std::string()).value()))
         return error;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusPage(octopus::Page &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "children") {
-            if (Error error = parseStdVectorOctopusReference(value.children))
-                return error;
-        } else if (key == "description") {
-            if (Error error = parseNonstdOptionalStdString(value.description))
-                return error;
-        } else if (key == "hash") {
-            if (Error error = parseNonstdOptionalStdString(value.hash))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusPage(std::vector<octopus::Page> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusPage((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusComponentRole(octopus::Component::Role &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "COMPONENT")
-        value = octopus::Component::Role::COMPONENT;
-    else if (str == "ARTBOARD")
-        value = octopus::Component::Role::ARTBOARD;
-    else if (str == "PASTEBOARD")
-        value = octopus::Component::Role::PASTEBOARD;
-    else if (str == "PARTIAL")
-        value = octopus::Component::Role::PARTIAL;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseDouble(double &value) {
-    char *end;
-    value = strtod(cur, &end);
-    if (end == cur)
-        return Error::TYPE_MISMATCH;
-    cur = end;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusBounds(octopus::Bounds &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "x") {
-            if (Error error = parseDouble(value.x))
-                return error;
-        } else if (key == "y") {
-            if (Error error = parseDouble(value.y))
-                return error;
-        } else if (key == "width") {
-            if (Error error = parseDouble(value.width))
-                return error;
-        } else if (key == "height") {
-            if (Error error = parseDouble(value.height))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
     return Error::OK;
 }
 
@@ -455,13 +251,23 @@ ManifestParser::Error::Type ManifestParser::parseOctopusResourceLocationType(oct
     std::string str;
     if (Error::Type error = parseStdString(str))
         return error;
-    if (str == "RELATIVE")
-        value = octopus::ResourceLocation::Type::RELATIVE;
-    else if (str == "EXTERNAL")
-        value = octopus::ResourceLocation::Type::EXTERNAL;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
+    if (str.size() > 0) {
+        switch (str[0]) {
+            case 'E':
+                if (str == "EXTERNAL") {
+                    value = octopus::ResourceLocation::Type::EXTERNAL;
+                    return Error::OK; 
+                }
+                break;
+            case 'R':
+                if (str == "RELATIVE") {
+                    value = octopus::ResourceLocation::Type::RELATIVE;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusResourceLocation(octopus::ResourceLocation &value) {
@@ -469,109 +275,56 @@ ManifestParser::Error::Type ManifestParser::parseOctopusResourceLocation(octopus
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusResourceLocationType(value.type))
-                return error;
-        } else if (key == "path") {
-            if (Error error = parseNonstdOptionalStdString(value.path))
-                return error;
-        } else if (key == "url") {
-            if (Error error = parseNonstdOptionalStdString(value.url))
-                return error;
-        } else if (key == "versionHash") {
-            if (Error error = parseNonstdOptionalStdString(value.versionHash))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'p':
+                    if (key == "path") {
+                        if (Error error = parseNonstdOptionalStdString(value.path))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "type") {
+                        if (Error error = parseOctopusResourceLocationType(value.type))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'u':
+                    if (key == "url") {
+                        if (Error error = parseNonstdOptionalStdString(value.url))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "versionHash") {
+                        if (Error error = parseNonstdOptionalStdString(value.versionHash))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusArtifactType(octopus::Artifact::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "OCTOPUS")
-        value = octopus::Artifact::Type::OCTOPUS;
-    else if (str == "OCTOPUS_EXPANDED")
-        value = octopus::Artifact::Type::OCTOPUS_EXPANDED;
-    else if (str == "SOURCE")
-        value = octopus::Artifact::Type::SOURCE;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusArtifact(octopus::Artifact &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error error = skipValue())
             return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "type") {
-            if (Error error = parseOctopusArtifactType(value.type))
-                return error;
-        } else if (key == "location") {
-            if (Error error = parseOctopusResourceLocation(value.location))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusArtifact(std::vector<octopus::Artifact> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusArtifact((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusReference(nonstd::optional<octopus::Reference> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusReference((value = octopus::Reference()).value()))
-        return error;
     return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusResourceLocation(nonstd::optional<octopus::ResourceLocation> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusResourceLocation((value = octopus::ResourceLocation()).value()))
         return error;
@@ -583,30 +336,47 @@ ManifestParser::Error::Type ManifestParser::parseOctopusAssetFont(octopus::Asset
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "location") {
-            if (Error error = parseNonstdOptionalOctopusResourceLocation(value.location))
-                return error;
-        } else if (key == "fontType") {
-            if (Error error = parseNonstdOptionalStdString(value.fontType))
-                return error;
-        } else if (key == "refId") {
-            if (Error error = parseStdString(value.refId))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'f':
+                    if (key == "fontType") {
+                        if (Error error = parseNonstdOptionalStdString(value.fontType))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "location") {
+                        if (Error error = parseNonstdOptionalOctopusResourceLocation(value.location))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'r':
+                    if (key == "refId") {
+                        if (Error error = parseStdString(value.refId))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -621,7 +391,7 @@ ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusAssetFont(std::
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusAssetFont((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusAssetFont((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -635,27 +405,38 @@ ManifestParser::Error::Type ManifestParser::parseOctopusAssetImage(octopus::Asse
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "location") {
-            if (Error error = parseOctopusResourceLocation(value.location))
-                return error;
-        } else if (key == "refId") {
-            if (Error error = parseStdString(value.refId))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 4:
+                if (key == "name") {
+                    if (Error error = parseStdString(value.name))
+                        return error;
+                    continue;
+                }
+                break;
+            case 5:
+                if (key == "refId") {
+                    if (Error error = parseStdString(value.refId))
+                        return error;
+                    continue;
+                }
+                break;
+            case 8:
+                if (key == "location") {
+                    if (Error error = parseOctopusResourceLocation(value.location))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -670,7 +451,7 @@ ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusAssetImage(std:
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusAssetImage((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusAssetImage((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -684,24 +465,31 @@ ManifestParser::Error::Type ManifestParser::parseOctopusAssets(octopus::Assets &
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "fonts") {
-            if (Error error = parseStdVectorOctopusAssetFont(value.fonts))
-                return error;
-        } else if (key == "images") {
-            if (Error error = parseStdVectorOctopusAssetImage(value.images))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 5:
+                if (key == "fonts") {
+                    if (Error error = parseStdVectorOctopusAssetFont(value.fonts))
+                        return error;
+                    continue;
+                }
+                break;
+            case 6:
+                if (key == "images") {
+                    if (Error error = parseStdVectorOctopusAssetImage(value.images))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -710,11 +498,600 @@ ManifestParser::Error::Type ManifestParser::parseOctopusAssets(octopus::Assets &
 
 ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusAssets(nonstd::optional<octopus::Assets> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusAssets((value = octopus::Assets()).value()))
         return error;
     return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusArtifactType(octopus::Artifact::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 6:
+            if (str == "SOURCE") {
+                value = octopus::Artifact::Type::SOURCE;
+                return Error::OK; 
+            }
+            break;
+        case 7:
+            if (str == "OCTOPUS") {
+                value = octopus::Artifact::Type::OCTOPUS;
+                return Error::OK; 
+            }
+            break;
+        case 16:
+            if (str == "OCTOPUS_EXPANDED") {
+                value = octopus::Artifact::Type::OCTOPUS_EXPANDED;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusArtifact(octopus::Artifact &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 4:
+                if (key == "type") {
+                    if (Error error = parseOctopusArtifactType(value.type))
+                        return error;
+                    continue;
+                }
+                break;
+            case 8:
+                if (key == "location") {
+                    if (Error error = parseOctopusResourceLocation(value.location))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusArtifact(std::vector<octopus::Artifact> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusArtifact((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseInt(int &value) {
+    skipWhitespace();
+    return readSigned(value);
+}
+
+ManifestParser::Error::Type ManifestParser::parseStdVectorStdString(std::vector<std::string> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusStatusError(octopus::Status::Error &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 4:
+                if (key == "code") {
+                    if (Error error = parseInt(value.code))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                if (key == "message") {
+                    if (Error error = parseStdString(value.message))
+                        return error;
+                    continue;
+                }
+                break;
+            case 10:
+                if (key == "stacktrace") {
+                    if (Error error = parseStdVectorStdString(value.stacktrace))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusStatusError(nonstd::optional<octopus::Status::Error> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusStatusError((value = octopus::Status::Error()).value()))
+        return error;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseDouble(double &value) {
+    char *end;
+    value = strtod(cur, &end);
+    if (end == cur)
+        return Error::TYPE_MISMATCH;
+    cur = end;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseNonstdOptionalDouble(nonstd::optional<double> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseDouble((value = double()).value()))
+        return error;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusStatusValue(octopus::Status::Value &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 5:
+            if (str == "READY") {
+                value = octopus::Status::READY;
+                return Error::OK; 
+            }
+            break;
+        case 6:
+            if (str == "FAILED") {
+                value = octopus::Status::FAILED;
+                return Error::OK; 
+            }
+            break;
+        case 7:
+            if (str == "PENDING") {
+                value = octopus::Status::PENDING;
+                return Error::OK; 
+            }
+            break;
+        case 10:
+            if (str == "PROCESSING") {
+                value = octopus::Status::PROCESSING;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusStatus(octopus::Status &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'e':
+                    if (key == "error") {
+                        if (Error error = parseNonstdOptionalOctopusStatusError(value.error))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "time") {
+                        if (Error error = parseNonstdOptionalDouble(value.time))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "value") {
+                        if (Error error = parseOctopusStatusValue(value.value))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusStatus(nonstd::optional<octopus::Status> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusStatus((value = octopus::Status()).value()))
+        return error;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusChunkType(octopus::Chunk::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    if (str.size() > 6) {
+        switch (str[6]) {
+            case 'E':
+                if (str == "STYLE_EFFECT") {
+                    value = octopus::Chunk::Type::STYLE_EFFECT;
+                    return Error::OK; 
+                }
+                break;
+            case 'F':
+                if (str == "STYLE_FILL") {
+                    value = octopus::Chunk::Type::STYLE_FILL;
+                    return Error::OK; 
+                }
+                break;
+            case 'G':
+                if (str == "STYLE_GRID") {
+                    value = octopus::Chunk::Type::STYLE_GRID;
+                    return Error::OK; 
+                }
+                break;
+            case 'L':
+                if (str == "STYLE_LAYER") {
+                    value = octopus::Chunk::Type::STYLE_LAYER;
+                    return Error::OK; 
+                }
+                break;
+            case 'T':
+                if (str == "STYLE_TEXT") {
+                    value = octopus::Chunk::Type::STYLE_TEXT;
+                    return Error::OK; 
+                }
+                break;
+        }
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusChunk(octopus::Chunk &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'a':
+                    switch (key.size()) {
+                        case 6:
+                            if (key == "assets") {
+                                if (Error error = parseNonstdOptionalOctopusAssets(value.assets))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "artifacts") {
+                                if (Error error = parseStdVectorOctopusArtifact(value.artifacts))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'd':
+                    if (key == "description") {
+                        if (Error error = parseNonstdOptionalStdString(value.description))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'h':
+                    if (key == "hash") {
+                        if (Error error = parseNonstdOptionalStdString(value.hash))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "id") {
+                        if (Error error = parseStdString(value.id))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "location") {
+                        if (Error error = parseOctopusResourceLocation(value.location))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    if (key == "preview") {
+                        if (Error error = parseNonstdOptionalOctopusResourceLocation(value.preview))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 's':
+                    if (key == "status") {
+                        if (Error error = parseNonstdOptionalOctopusStatus(value.status))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 't':
+                    if (key == "type") {
+                        if (Error error = parseOctopusChunkType(value.type))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusChunk(std::vector<octopus::Chunk> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusChunk((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusBounds(octopus::Bounds &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'h':
+                    if (key == "height") {
+                        if (Error error = parseDouble(value.height))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'w':
+                    if (key == "width") {
+                        if (Error error = parseDouble(value.width))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'x':
+                    if (key == "x") {
+                        if (Error error = parseDouble(value.x))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'y':
+                    if (key == "y") {
+                        if (Error error = parseDouble(value.y))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusReferenceType(octopus::Reference::Type &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 5:
+            if (str == "CHUNK") {
+                value = octopus::Reference::Type::CHUNK;
+                return Error::OK; 
+            }
+            break;
+        case 8:
+            if (str == "ARTBOARD") {
+                value = octopus::Reference::Type::ARTBOARD;
+                return Error::OK; 
+            }
+            break;
+        case 9:
+            if (str == "COMPONENT") {
+                value = octopus::Reference::Type::COMPONENT;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusReference(octopus::Reference &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        switch (key.size()) {
+            case 2:
+                if (key == "id") {
+                    if (Error error = parseStdString(value.id))
+                        return error;
+                    continue;
+                }
+                break;
+            case 4:
+                if (key == "type") {
+                    if (Error error = parseOctopusReferenceType(value.type))
+                        return error;
+                    continue;
+                }
+                break;
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusReference(std::vector<octopus::Reference> &value) {
+    if (!matchSymbol('['))
+        return Error::TYPE_MISMATCH;
+    value.clear();
+    int separatorCheck = -1;
+    while (!matchSymbol(']')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseOctopusReference((value.resize(value.size()+1), value.back())))
+            return error;
+        separatorCheck = matchSymbol(',');
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusReference(nonstd::optional<octopus::Reference> &value) {
+    skipWhitespace();
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
+        value.reset();
+    else if (Error error = parseOctopusReference((value = octopus::Reference()).value()))
+        return error;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseOctopusComponentRole(octopus::Component::Role &value) {
+    std::string str;
+    if (Error::Type error = parseStdString(str))
+        return error;
+    switch (str.size()) {
+        case 7:
+            if (str == "PARTIAL") {
+                value = octopus::Component::Role::PARTIAL;
+                return Error::OK; 
+            }
+            break;
+        case 8:
+            if (str == "ARTBOARD") {
+                value = octopus::Component::Role::ARTBOARD;
+                return Error::OK; 
+            }
+            break;
+        case 9:
+            if (str == "COMPONENT") {
+                value = octopus::Component::Role::COMPONENT;
+                return Error::OK; 
+            }
+            break;
+        case 10:
+            if (str == "PASTEBOARD") {
+                value = octopus::Component::Role::PASTEBOARD;
+                return Error::OK; 
+            }
+            break;
+    }
+    return Error::UNKNOWN_ENUM_VALUE;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusComponentSet(octopus::ComponentSet &value) {
@@ -722,27 +1099,38 @@ ManifestParser::Error::Type ManifestParser::parseOctopusComponentSet(octopus::Co
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "description") {
-            if (Error error = parseNonstdOptionalStdString(value.description))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 2:
+                if (key == "id") {
+                    if (Error error = parseStdString(value.id))
+                        return error;
+                    continue;
+                }
+                break;
+            case 4:
+                if (key == "name") {
+                    if (Error error = parseStdString(value.name))
+                        return error;
+                    continue;
+                }
+                break;
+            case 11:
+                if (key == "description") {
+                    if (Error error = parseNonstdOptionalStdString(value.description))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -776,27 +1164,38 @@ ManifestParser::Error::Type ManifestParser::parseOctopusComponentVariantMeta(oct
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "of") {
-            if (Error error = parseOctopusComponentSet(value.of))
-                return error;
-        } else if (key == "properties") {
-            if (Error error = parseStdMapStdStringStdString(value.properties))
-                return error;
-        } else if (key == "description") {
-            if (Error error = parseNonstdOptionalStdString(value.description))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 2:
+                if (key == "of") {
+                    if (Error error = parseOctopusComponentSet(value.of))
+                        return error;
+                    continue;
+                }
+                break;
+            case 10:
+                if (key == "properties") {
+                    if (Error error = parseStdMapStdStringStdString(value.properties))
+                        return error;
+                    continue;
+                }
+                break;
+            case 11:
+                if (key == "description") {
+                    if (Error error = parseNonstdOptionalStdString(value.description))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -805,139 +1204,9 @@ ManifestParser::Error::Type ManifestParser::parseOctopusComponentVariantMeta(oct
 
 ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusComponentVariantMeta(nonstd::optional<octopus::Component::VariantMeta> &value) {
     skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
+    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
     else if (Error error = parseOctopusComponentVariantMeta((value = octopus::Component::VariantMeta()).value()))
-        return error;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusStatusValue(octopus::Status::Value &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "READY")
-        value = octopus::Status::READY;
-    else if (str == "PENDING")
-        value = octopus::Status::PENDING;
-    else if (str == "PROCESSING")
-        value = octopus::Status::PROCESSING;
-    else if (str == "FAILED")
-        value = octopus::Status::FAILED;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseInt(int &value) {
-    skipWhitespace();
-    return readSigned(value);
-}
-
-ManifestParser::Error::Type ManifestParser::parseStdVectorStdString(std::vector<std::string> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString((value.emplace_back(), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusStatusError(octopus::Status::Error &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "code") {
-            if (Error error = parseInt(value.code))
-                return error;
-        } else if (key == "message") {
-            if (Error error = parseStdString(value.message))
-                return error;
-        } else if (key == "stacktrace") {
-            if (Error error = parseStdVectorStdString(value.stacktrace))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusStatusError(nonstd::optional<octopus::Status::Error> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusStatusError((value = octopus::Status::Error()).value()))
-        return error;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseNonstdOptionalDouble(nonstd::optional<double> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseDouble((value = double()).value()))
-        return error;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusStatus(octopus::Status &value) {
-    std::string key;
-    if (!matchSymbol('{'))
-        return Error::TYPE_MISMATCH;
-    int separatorCheck = -1;
-    while (!matchSymbol('}')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
-            return error;
-        if (!matchSymbol(':'))
-            return Error::JSON_SYNTAX_ERROR;
-        if (key == "value") {
-            if (Error error = parseOctopusStatusValue(value.value))
-                return error;
-        } else if (key == "error") {
-            if (Error error = parseNonstdOptionalOctopusStatusError(value.error))
-                return error;
-        } else if (key == "time") {
-            if (Error error = parseNonstdOptionalDouble(value.time))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
-        }
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusStatus(nonstd::optional<octopus::Status> &value) {
-    skipWhitespace();
-    if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && ((cur += 4), true))
-        value.reset();
-    else if (Error error = parseOctopusStatus((value = octopus::Status()).value()))
         return error;
     return Error::OK;
 }
@@ -947,60 +1216,129 @@ ManifestParser::Error::Type ManifestParser::parseOctopusComponent(octopus::Compo
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "role") {
-            if (Error error = parseOctopusComponentRole(value.role))
-                return error;
-        } else if (key == "bounds") {
-            if (Error error = parseOctopusBounds(value.bounds))
-                return error;
-        } else if (key == "dependencies") {
-            if (Error error = parseStdVectorOctopusReference(value.dependencies))
-                return error;
-        } else if (key == "location") {
-            if (Error error = parseOctopusResourceLocation(value.location))
-                return error;
-        } else if (key == "artifacts") {
-            if (Error error = parseStdVectorOctopusArtifact(value.artifacts))
-                return error;
-        } else if (key == "parentId") {
-            if (Error error = parseNonstdOptionalOctopusReference(value.parentId))
-                return error;
-        } else if (key == "preview") {
-            if (Error error = parseNonstdOptionalOctopusResourceLocation(value.preview))
-                return error;
-        } else if (key == "assets") {
-            if (Error error = parseNonstdOptionalOctopusAssets(value.assets))
-                return error;
-        } else if (key == "variant") {
-            if (Error error = parseNonstdOptionalOctopusComponentVariantMeta(value.variant))
-                return error;
-        } else if (key == "description") {
-            if (Error error = parseNonstdOptionalStdString(value.description))
-                return error;
-        } else if (key == "hash") {
-            if (Error error = parseNonstdOptionalStdString(value.hash))
-                return error;
-        } else if (key == "status") {
-            if (Error error = parseNonstdOptionalOctopusStatus(value.status))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'a':
+                    switch (key.size()) {
+                        case 6:
+                            if (key == "assets") {
+                                if (Error error = parseNonstdOptionalOctopusAssets(value.assets))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 9:
+                            if (key == "artifacts") {
+                                if (Error error = parseStdVectorOctopusArtifact(value.artifacts))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'b':
+                    if (key == "bounds") {
+                        if (Error error = parseOctopusBounds(value.bounds))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'd':
+                    switch (key.size()) {
+                        case 11:
+                            if (key == "description") {
+                                if (Error error = parseNonstdOptionalStdString(value.description))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 12:
+                            if (key == "dependencies") {
+                                if (Error error = parseStdVectorOctopusReference(value.dependencies))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'h':
+                    if (key == "hash") {
+                        if (Error error = parseNonstdOptionalStdString(value.hash))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "id") {
+                        if (Error error = parseStdString(value.id))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "location") {
+                        if (Error error = parseOctopusResourceLocation(value.location))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    switch (key.size()) {
+                        case 7:
+                            if (key == "preview") {
+                                if (Error error = parseNonstdOptionalOctopusResourceLocation(value.preview))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 8:
+                            if (key == "parentId") {
+                                if (Error error = parseNonstdOptionalOctopusReference(value.parentId))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'r':
+                    if (key == "role") {
+                        if (Error error = parseOctopusComponentRole(value.role))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 's':
+                    if (key == "status") {
+                        if (Error error = parseNonstdOptionalOctopusStatus(value.status))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "variant") {
+                        if (Error error = parseNonstdOptionalOctopusComponentVariantMeta(value.variant))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -1015,7 +1353,7 @@ ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusComponent(std::
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusComponent((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusComponent((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -1029,42 +1367,75 @@ ManifestParser::Error::Type ManifestParser::parseOctopusLibrary(octopus::Library
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "children") {
-            if (Error error = parseStdVectorOctopusReference(value.children))
-                return error;
-        } else if (key == "location") {
-            if (Error error = parseNonstdOptionalOctopusResourceLocation(value.location))
-                return error;
-        } else if (key == "preview") {
-            if (Error error = parseNonstdOptionalOctopusResourceLocation(value.preview))
-                return error;
-        } else if (key == "assets") {
-            if (Error error = parseNonstdOptionalOctopusAssets(value.assets))
-                return error;
-        } else if (key == "description") {
-            if (Error error = parseNonstdOptionalStdString(value.description))
-                return error;
-        } else if (key == "hash") {
-            if (Error error = parseNonstdOptionalStdString(value.hash))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'a':
+                    if (key == "assets") {
+                        if (Error error = parseNonstdOptionalOctopusAssets(value.assets))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'c':
+                    if (key == "children") {
+                        if (Error error = parseStdVectorOctopusReference(value.children))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'd':
+                    if (key == "description") {
+                        if (Error error = parseNonstdOptionalStdString(value.description))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'h':
+                    if (key == "hash") {
+                        if (Error error = parseNonstdOptionalStdString(value.hash))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "id") {
+                        if (Error error = parseStdString(value.id))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "location") {
+                        if (Error error = parseNonstdOptionalOctopusResourceLocation(value.location))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    if (key == "preview") {
+                        if (Error error = parseNonstdOptionalOctopusResourceLocation(value.preview))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
@@ -1079,7 +1450,7 @@ ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusLibrary(std::ve
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusLibrary((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusLibrary((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -1088,79 +1459,102 @@ ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusLibrary(std::ve
     return Error::OK;
 }
 
-ManifestParser::Error::Type ManifestParser::parseOctopusChunkType(octopus::Chunk::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
-        return error;
-    if (str == "STYLE_LAYER")
-        value = octopus::Chunk::Type::STYLE_LAYER;
-    else if (str == "STYLE_FILL")
-        value = octopus::Chunk::Type::STYLE_FILL;
-    else if (str == "STYLE_TEXT")
-        value = octopus::Chunk::Type::STYLE_TEXT;
-    else if (str == "STYLE_EFFECT")
-        value = octopus::Chunk::Type::STYLE_EFFECT;
-    else if (str == "STYLE_GRID")
-        value = octopus::Chunk::Type::STYLE_GRID;
-    else
-        return Error::UNKNOWN_ENUM_VALUE;
-    return Error::OK;
-}
-
-ManifestParser::Error::Type ManifestParser::parseOctopusChunk(octopus::Chunk &value) {
+ManifestParser::Error::Type ManifestParser::parseOctopusOctopusManifestOrigin(octopus::OctopusManifest::Origin &value) {
     std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "id") {
-            if (Error error = parseStdString(value.id))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "type") {
-            if (Error error = parseOctopusChunkType(value.type))
-                return error;
-        } else if (key == "location") {
-            if (Error error = parseOctopusResourceLocation(value.location))
-                return error;
-        } else if (key == "artifacts") {
-            if (Error error = parseStdVectorOctopusArtifact(value.artifacts))
-                return error;
-        } else if (key == "preview") {
-            if (Error error = parseNonstdOptionalOctopusResourceLocation(value.preview))
-                return error;
-        } else if (key == "assets") {
-            if (Error error = parseNonstdOptionalOctopusAssets(value.assets))
-                return error;
-        } else if (key == "description") {
-            if (Error error = parseNonstdOptionalStdString(value.description))
-                return error;
-        } else if (key == "hash") {
-            if (Error error = parseNonstdOptionalStdString(value.hash))
-                return error;
-        } else if (key == "status") {
-            if (Error error = parseNonstdOptionalOctopusStatus(value.status))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        switch (key.size()) {
+            case 4:
+                if (key == "name") {
+                    if (Error error = parseStdString(value.name))
+                        return error;
+                    continue;
+                }
+                break;
+            case 7:
+                if (key == "version") {
+                    if (Error error = parseStdString(value.version))
+                        return error;
+                    continue;
+                }
+                break;
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
     return Error::OK;
 }
 
-ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusChunk(std::vector<octopus::Chunk> &value) {
+ManifestParser::Error::Type ManifestParser::parseOctopusPage(octopus::Page &value) {
+    std::string key;
+    if (!matchSymbol('{'))
+        return Error::TYPE_MISMATCH;
+    int separatorCheck = -1;
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
+        if (!separatorCheck)
+            return Error::JSON_SYNTAX_ERROR;
+        if (Error::Type error = parseStdString(key))
+            return error;
+        if (!matchSymbol(':'))
+            return Error::JSON_SYNTAX_ERROR;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'c':
+                    if (key == "children") {
+                        if (Error error = parseStdVectorOctopusReference(value.children))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'd':
+                    if (key == "description") {
+                        if (Error error = parseNonstdOptionalStdString(value.description))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'h':
+                    if (key == "hash") {
+                        if (Error error = parseNonstdOptionalStdString(value.hash))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "id") {
+                        if (Error error = parseStdString(value.id))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
+        }
+        if (Error error = skipValue())
+            return error;
+    }
+    if (separatorCheck == 1)
+        return Error::JSON_SYNTAX_ERROR;
+    return Error::OK;
+}
+
+ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusPage(std::vector<octopus::Page> &value) {
     if (!matchSymbol('['))
         return Error::TYPE_MISMATCH;
     value.clear();
@@ -1168,7 +1562,7 @@ ManifestParser::Error::Type ManifestParser::parseStdVectorOctopusChunk(std::vect
     while (!matchSymbol(']')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusChunk((value.emplace_back(), value.back())))
+        if (Error::Type error = parseOctopusPage((value.resize(value.size()+1), value.back())))
             return error;
         separatorCheck = matchSymbol(',');
     }
@@ -1182,48 +1576,93 @@ ManifestParser::Error::Type ManifestParser::parseOctopusOctopusManifest(octopus:
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
-    while (!matchSymbol('}')) {
+    for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
         if (Error::Type error = parseStdString(key))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key == "version") {
-            if (Error error = parseStdString(value.version))
-                return error;
-        } else if (key == "origin") {
-            if (Error error = parseOctopusOctopusManifestOrigin(value.origin))
-                return error;
-        } else if (key == "name") {
-            if (Error error = parseStdString(value.name))
-                return error;
-        } else if (key == "pages") {
-            if (Error error = parseStdVectorOctopusPage(value.pages))
-                return error;
-        } else if (key == "components") {
-            if (Error error = parseStdVectorOctopusComponent(value.components))
-                return error;
-        } else if (key == "libraries") {
-            if (Error error = parseStdVectorOctopusLibrary(value.libraries))
-                return error;
-        } else if (key == "chunks") {
-            if (Error error = parseStdVectorOctopusChunk(value.chunks))
-                return error;
-        } else if (key == "resourcesBase") {
-            if (Error error = parseStdString(value.resourcesBase))
-                return error;
-        } else if (key == "interactions") {
-            if (Error error = parseNonstdOptionalOctopusResourceLocation(value.interactions))
-                return error;
-        } else if (key == "hash") {
-            if (Error error = parseNonstdOptionalStdString(value.hash))
-                return error;
-        } else {
-            if (Error error = skipValue())
-                return error;
+        if (key.size() > 0) {
+            switch (key[0]) {
+                case 'c':
+                    switch (key.size()) {
+                        case 6:
+                            if (key == "chunks") {
+                                if (Error error = parseStdVectorOctopusChunk(value.chunks))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                        case 10:
+                            if (key == "components") {
+                                if (Error error = parseStdVectorOctopusComponent(value.components))
+                                    return error;
+                                continue;
+                            }
+                            break;
+                    }
+                    break;
+                case 'h':
+                    if (key == "hash") {
+                        if (Error error = parseNonstdOptionalStdString(value.hash))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'i':
+                    if (key == "interactions") {
+                        if (Error error = parseNonstdOptionalOctopusResourceLocation(value.interactions))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'l':
+                    if (key == "libraries") {
+                        if (Error error = parseStdVectorOctopusLibrary(value.libraries))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'n':
+                    if (key == "name") {
+                        if (Error error = parseStdString(value.name))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'o':
+                    if (key == "origin") {
+                        if (Error error = parseOctopusOctopusManifestOrigin(value.origin))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'p':
+                    if (key == "pages") {
+                        if (Error error = parseStdVectorOctopusPage(value.pages))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'r':
+                    if (key == "resourcesBase") {
+                        if (Error error = parseStdString(value.resourcesBase))
+                            return error;
+                        continue;
+                    }
+                    break;
+                case 'v':
+                    if (key == "version") {
+                        if (Error error = parseStdString(value.version))
+                            return error;
+                        continue;
+                    }
+                    break;
+            }
         }
-        separatorCheck = matchSymbol(',');
+        if (Error error = skipValue())
+            return error;
     }
     if (separatorCheck == 1)
         return Error::JSON_SYNTAX_ERROR;
