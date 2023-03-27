@@ -35,1685 +35,1638 @@ Serializer::Serializer(std::string &json) : json(json) {
     json.clear();
 }
 
-void Serializer::write(char c) {
-    json.push_back(c);
-}
-
-void Serializer::write(const char *str) {
-    json += str;
-}
-
 void Serializer::writeEscaped(char c) {
     switch (c) {
-        case '\x00': write("\\u0000"); break;
-        case '\x01': write("\\u0001"); break;
-        case '\x02': write("\\u0002"); break;
-        case '\x03': write("\\u0003"); break;
-        case '\x04': write("\\u0004"); break;
-        case '\x05': write("\\u0005"); break;
-        case '\x06': write("\\u0006"); break;
-        case '\x07': write("\\u0007"); break;
-        case '\b': write("\\b"); break;
-        case '\t': write("\\t"); break;
-        case '\n': write("\\n"); break;
-        case '\x0b': write("\\u000b"); break;
-        case '\f': write("\\f"); break;
-        case '\r': write("\\r"); break;
-        case '\x0e': write("\\u000e"); break;
-        case '\x0f': write("\\u000f"); break;
-        case '\x10': write("\\u0010"); break;
-        case '\x11': write("\\u0011"); break;
-        case '\x12': write("\\u0012"); break;
-        case '\x13': write("\\u0013"); break;
-        case '\x14': write("\\u0014"); break;
-        case '\x15': write("\\u0015"); break;
-        case '\x16': write("\\u0016"); break;
-        case '\x17': write("\\u0017"); break;
-        case '\x18': write("\\u0018"); break;
-        case '\x19': write("\\u0019"); break;
-        case '\x1a': write("\\u001a"); break;
-        case '\x1b': write("\\u001b"); break;
-        case '\x1c': write("\\u001c"); break;
-        case '\x1d': write("\\u001d"); break;
-        case '\x1e': write("\\u001e"); break;
-        case '\x1f': write("\\u001f"); break;
-        case '"': write("\\\""); break;
-        case '\\': write("\\\\"); break;
+        case '\x00': json += "\\u0000"; break;
+        case '\x01': json += "\\u0001"; break;
+        case '\x02': json += "\\u0002"; break;
+        case '\x03': json += "\\u0003"; break;
+        case '\x04': json += "\\u0004"; break;
+        case '\x05': json += "\\u0005"; break;
+        case '\x06': json += "\\u0006"; break;
+        case '\x07': json += "\\u0007"; break;
+        case '\b': json += "\\b"; break;
+        case '\t': json += "\\t"; break;
+        case '\n': json += "\\n"; break;
+        case '\x0b': json += "\\u000b"; break;
+        case '\f': json += "\\f"; break;
+        case '\r': json += "\\r"; break;
+        case '\x0e': json += "\\u000e"; break;
+        case '\x0f': json += "\\u000f"; break;
+        case '\x10': json += "\\u0010"; break;
+        case '\x11': json += "\\u0011"; break;
+        case '\x12': json += "\\u0012"; break;
+        case '\x13': json += "\\u0013"; break;
+        case '\x14': json += "\\u0014"; break;
+        case '\x15': json += "\\u0015"; break;
+        case '\x16': json += "\\u0016"; break;
+        case '\x17': json += "\\u0017"; break;
+        case '\x18': json += "\\u0018"; break;
+        case '\x19': json += "\\u0019"; break;
+        case '\x1a': json += "\\u001a"; break;
+        case '\x1b': json += "\\u001b"; break;
+        case '\x1c': json += "\\u001c"; break;
+        case '\x1d': json += "\\u001d"; break;
+        case '\x1e': json += "\\u001e"; break;
+        case '\x1f': json += "\\u001f"; break;
+        case '"': json += "\\\""; break;
+        case '\\': json += "\\\\"; break;
         default:
-            write(c);
+            json.push_back(c);
     }
 }
 
 template <typename U, typename T>
 void Serializer::writeSigned(T value) {
-    if (value < 0)
-        write('-'), value = -value;
+    if (value < 0) {
+        json.push_back('-');
+        value = -value;
+    }
     U unsignedValue = static_cast<U>(value);
     char buffer[4*(sizeof(U)+1)], *cur = &(buffer[4*(sizeof(U)+1)-1] = '\0');
     do *--cur = '0'+unsignedValue%10; while (unsignedValue /= 10);
-    write(cur);
+    json += cur;
 }
 
-Serializer::Error Serializer::serialize(std::string &jsonString, octopus::Octopus const &input) {
+Serializer::Error Serializer::serialize(std::string &jsonString, const octopus::Octopus &input) {
     return Serializer(jsonString).serializeOctopusOctopus(input);
 }
 
-Serializer::Error Serializer::serialize(std::string &jsonString, octopus::Layer const &input) {
+Serializer::Error Serializer::serialize(std::string &jsonString, const octopus::Layer &input) {
     return Serializer(jsonString).serializeOctopusLayer(input);
 }
 
-Serializer::Error Serializer::serialize(std::string &jsonString, octopus::LayerChange const &input) {
+Serializer::Error Serializer::serialize(std::string &jsonString, const octopus::LayerChange &input) {
     return Serializer(jsonString).serializeOctopusLayerChange(input);
 }
 
-Serializer::Error Serializer::serializeOctopusOctopusType(octopus::Octopus::Type const &value) {
+Serializer::Error Serializer::serializeOctopusOctopusType(const octopus::Octopus::Type &value) {
     switch (value) {
-        case octopus::Octopus::Type::OCTOPUS_COMPONENT: write("\"OCTOPUS_COMPONENT\""); break;
+        case octopus::Octopus::Type::OCTOPUS_COMPONENT: json += "\"OCTOPUS_COMPONENT\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdString(std::string const &value) {
-    write('"');
+Serializer::Error Serializer::serializeStdString(const std::string &value) {
+    json.push_back('"');
     for (std::string::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { char c = *i; writeEscaped(c); }
-    write('"');
+    json.push_back('"');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeDouble(double const &value) {
+Serializer::Error Serializer::serializeDouble(const double &value) {
     char buffer[64];
     JSON_CPP_SERIALIZE_DOUBLE(buffer, value);
     switch (buffer[1]) {
         case 'i':
-            write("-1e999");
+            json += "-1e999";
             break;
         case 'n':
             if (buffer[0] == 'i') {
-                write("1e999");
+            json += "1e999";
                 break;
             }
             // fallthrough
         case 'a':
-            write("\"NaN\"");
+            json += "\"NaN\"";
             break;
         default:
-            write(buffer);
+            json += buffer;
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusDimensions(octopus::Dimensions const &value) {
-    write("{\"" "width" "\":");
+Serializer::Error Serializer::serializeOctopusDimensions(const octopus::Dimensions &value) {
+    json += "{\"" "width" "\":";
     if (Error error = serializeDouble(value.width))
         return error;
-    write(",\"" "height" "\":");
+    json += ",\"" "height" "\":";
     if (Error error = serializeDouble(value.height))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusLayerType(octopus::Layer::Type const &value) {
+Serializer::Error Serializer::serializeOctopusLayerType(const octopus::Layer::Type &value) {
     switch (value) {
-        case octopus::Layer::Type::SHAPE: write("\"SHAPE\""); break;
-        case octopus::Layer::Type::TEXT: write("\"TEXT\""); break;
-        case octopus::Layer::Type::GROUP: write("\"GROUP\""); break;
-        case octopus::Layer::Type::MASK_GROUP: write("\"MASK_GROUP\""); break;
-        case octopus::Layer::Type::COMPONENT_REFERENCE: write("\"COMPONENT_REFERENCE\""); break;
-        case octopus::Layer::Type::COMPONENT_INSTANCE: write("\"COMPONENT_INSTANCE\""); break;
+        case octopus::Layer::Type::SHAPE: json += "\"SHAPE\""; break;
+        case octopus::Layer::Type::TEXT: json += "\"TEXT\""; break;
+        case octopus::Layer::Type::GROUP: json += "\"GROUP\""; break;
+        case octopus::Layer::Type::MASK_GROUP: json += "\"MASK_GROUP\""; break;
+        case octopus::Layer::Type::COMPONENT_REFERENCE: json += "\"COMPONENT_REFERENCE\""; break;
+        case octopus::Layer::Type::COMPONENT_INSTANCE: json += "\"COMPONENT_INSTANCE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeBool(bool const &value) {
-    write(value ? "true" : "false");
+Serializer::Error Serializer::serializeBool(const bool &value) {
+    if (value) {
+        json += "true";
+    } else {
+        json += "false";
+    }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusBlendMode(octopus::BlendMode const &value) {
+Serializer::Error Serializer::serializeOctopusBlendMode(const octopus::BlendMode &value) {
     switch (value) {
-        case octopus::BlendMode::NORMAL: write("\"NORMAL\""); break;
-        case octopus::BlendMode::PASS_THROUGH: write("\"PASS_THROUGH\""); break;
-        case octopus::BlendMode::COLOR: write("\"COLOR\""); break;
-        case octopus::BlendMode::COLOR_BURN: write("\"COLOR_BURN\""); break;
-        case octopus::BlendMode::COLOR_DODGE: write("\"COLOR_DODGE\""); break;
-        case octopus::BlendMode::DARKEN: write("\"DARKEN\""); break;
-        case octopus::BlendMode::DARKER_COLOR: write("\"DARKER_COLOR\""); break;
-        case octopus::BlendMode::DIFFERENCE: write("\"DIFFERENCE\""); break;
-        case octopus::BlendMode::DIVIDE: write("\"DIVIDE\""); break;
-        case octopus::BlendMode::EXCLUSION: write("\"EXCLUSION\""); break;
-        case octopus::BlendMode::HARD_LIGHT: write("\"HARD_LIGHT\""); break;
-        case octopus::BlendMode::HARD_MIX: write("\"HARD_MIX\""); break;
-        case octopus::BlendMode::HUE: write("\"HUE\""); break;
-        case octopus::BlendMode::LIGHTEN: write("\"LIGHTEN\""); break;
-        case octopus::BlendMode::LIGHTER_COLOR: write("\"LIGHTER_COLOR\""); break;
-        case octopus::BlendMode::LINEAR_BURN: write("\"LINEAR_BURN\""); break;
-        case octopus::BlendMode::LINEAR_DODGE: write("\"LINEAR_DODGE\""); break;
-        case octopus::BlendMode::LINEAR_LIGHT: write("\"LINEAR_LIGHT\""); break;
-        case octopus::BlendMode::LUMINOSITY: write("\"LUMINOSITY\""); break;
-        case octopus::BlendMode::MULTIPLY: write("\"MULTIPLY\""); break;
-        case octopus::BlendMode::OVERLAY: write("\"OVERLAY\""); break;
-        case octopus::BlendMode::PIN_LIGHT: write("\"PIN_LIGHT\""); break;
-        case octopus::BlendMode::SATURATION: write("\"SATURATION\""); break;
-        case octopus::BlendMode::SCREEN: write("\"SCREEN\""); break;
-        case octopus::BlendMode::SOFT_LIGHT: write("\"SOFT_LIGHT\""); break;
-        case octopus::BlendMode::SUBTRACT: write("\"SUBTRACT\""); break;
-        case octopus::BlendMode::VIVID_LIGHT: write("\"VIVID_LIGHT\""); break;
+        case octopus::BlendMode::NORMAL: json += "\"NORMAL\""; break;
+        case octopus::BlendMode::PASS_THROUGH: json += "\"PASS_THROUGH\""; break;
+        case octopus::BlendMode::COLOR: json += "\"COLOR\""; break;
+        case octopus::BlendMode::COLOR_BURN: json += "\"COLOR_BURN\""; break;
+        case octopus::BlendMode::COLOR_DODGE: json += "\"COLOR_DODGE\""; break;
+        case octopus::BlendMode::DARKEN: json += "\"DARKEN\""; break;
+        case octopus::BlendMode::DARKER_COLOR: json += "\"DARKER_COLOR\""; break;
+        case octopus::BlendMode::DIFFERENCE: json += "\"DIFFERENCE\""; break;
+        case octopus::BlendMode::DIVIDE: json += "\"DIVIDE\""; break;
+        case octopus::BlendMode::EXCLUSION: json += "\"EXCLUSION\""; break;
+        case octopus::BlendMode::HARD_LIGHT: json += "\"HARD_LIGHT\""; break;
+        case octopus::BlendMode::HARD_MIX: json += "\"HARD_MIX\""; break;
+        case octopus::BlendMode::HUE: json += "\"HUE\""; break;
+        case octopus::BlendMode::LIGHTEN: json += "\"LIGHTEN\""; break;
+        case octopus::BlendMode::LIGHTER_COLOR: json += "\"LIGHTER_COLOR\""; break;
+        case octopus::BlendMode::LINEAR_BURN: json += "\"LINEAR_BURN\""; break;
+        case octopus::BlendMode::LINEAR_DODGE: json += "\"LINEAR_DODGE\""; break;
+        case octopus::BlendMode::LINEAR_LIGHT: json += "\"LINEAR_LIGHT\""; break;
+        case octopus::BlendMode::LUMINOSITY: json += "\"LUMINOSITY\""; break;
+        case octopus::BlendMode::MULTIPLY: json += "\"MULTIPLY\""; break;
+        case octopus::BlendMode::OVERLAY: json += "\"OVERLAY\""; break;
+        case octopus::BlendMode::PIN_LIGHT: json += "\"PIN_LIGHT\""; break;
+        case octopus::BlendMode::SATURATION: json += "\"SATURATION\""; break;
+        case octopus::BlendMode::SCREEN: json += "\"SCREEN\""; break;
+        case octopus::BlendMode::SOFT_LIGHT: json += "\"SOFT_LIGHT\""; break;
+        case octopus::BlendMode::SUBTRACT: json += "\"SUBTRACT\""; break;
+        case octopus::BlendMode::VIVID_LIGHT: json += "\"VIVID_LIGHT\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeDouble_6(double const value[6]) {
-    write('[');
+Serializer::Error Serializer::serializeDouble_6(const double value[6]) {
+    json.push_back('[');
     if (Error error = serializeDouble(value[0]))
         return error;
     for (int i = 1; i < 6; ++i) {
-        write(',');
+        json.push_back(',');
         if (Error error = serializeDouble(value[i]))
             return error;
     }
-    write(']');
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusShapeFillRule(octopus::Shape::FillRule const &value) {
+Serializer::Error Serializer::serializeOctopusShapeFillRule(const octopus::Shape::FillRule &value) {
     switch (value) {
-        case octopus::Shape::FillRule::EVEN_ODD: write("\"EVEN_ODD\""); break;
-        case octopus::Shape::FillRule::NON_ZERO: write("\"NON_ZERO\""); break;
+        case octopus::Shape::FillRule::EVEN_ODD: json += "\"EVEN_ODD\""; break;
+        case octopus::Shape::FillRule::NON_ZERO: json += "\"NON_ZERO\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusPathType(octopus::Path::Type const &value) {
+Serializer::Error Serializer::serializeOctopusPathType(const octopus::Path::Type &value) {
     switch (value) {
-        case octopus::Path::Type::PATH: write("\"PATH\""); break;
-        case octopus::Path::Type::RECTANGLE: write("\"RECTANGLE\""); break;
-        case octopus::Path::Type::COMPOUND: write("\"COMPOUND\""); break;
+        case octopus::Path::Type::PATH: json += "\"PATH\""; break;
+        case octopus::Path::Type::RECTANGLE: json += "\"RECTANGLE\""; break;
+        case octopus::Path::Type::COMPOUND: json += "\"COMPOUND\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusPathOp(octopus::Path::Op const &value) {
+Serializer::Error Serializer::serializeOctopusPathOp(const octopus::Path::Op &value) {
     switch (value) {
-        case octopus::Path::Op::UNION: write("\"UNION\""); break;
-        case octopus::Path::Op::INTERSECT: write("\"INTERSECT\""); break;
-        case octopus::Path::Op::SUBTRACT: write("\"SUBTRACT\""); break;
-        case octopus::Path::Op::EXCLUDE: write("\"EXCLUDE\""); break;
+        case octopus::Path::Op::UNION: json += "\"UNION\""; break;
+        case octopus::Path::Op::INTERSECT: json += "\"INTERSECT\""; break;
+        case octopus::Path::Op::SUBTRACT: json += "\"SUBTRACT\""; break;
+        case octopus::Path::Op::EXCLUDE: json += "\"EXCLUDE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusPath(std::vector<octopus::Path> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusPath(const std::vector<octopus::Path> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Path>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Path const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusPath(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Path>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Path const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusPath(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusRectangle(octopus::Rectangle const &value) {
-    write("{\"" "x0" "\":");
+Serializer::Error Serializer::serializeOctopusRectangle(const octopus::Rectangle &value) {
+    json += "{\"" "x0" "\":";
     if (Error error = serializeDouble(value.x0))
         return error;
-    write(",\"" "y0" "\":");
+    json += ",\"" "y0" "\":";
     if (Error error = serializeDouble(value.y0))
         return error;
-    write(",\"" "x1" "\":");
+    json += ",\"" "x1" "\":";
     if (Error error = serializeDouble(value.x1))
         return error;
-    write(",\"" "y1" "\":");
+    json += ",\"" "y1" "\":";
     if (Error error = serializeDouble(value.y1))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorDouble(std::vector<double> const &value) {
+Serializer::Error Serializer::serializeStdVectorDouble(const std::vector<double> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<double>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { double const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeDouble(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<double>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { double const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeDouble(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusPath(octopus::Path const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusPath(const octopus::Path &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusPathType(value.type))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
     if (value.op.has_value()) {
-        write(",\"" "op" "\":");
+        json += ",\"" "op" "\":";
         if (Error error = serializeOctopusPathOp(value.op.value()))
             return error;
     }
     if (value.geometry.has_value()) {
-        write(",\"" "geometry" "\":");
+        json += ",\"" "geometry" "\":";
         if (Error error = serializeStdString(value.geometry.value()))
             return error;
     }
     if (value.paths.has_value()) {
-        write(",\"" "paths" "\":");
+        json += ",\"" "paths" "\":";
         if (Error error = serializeStdVectorOctopusPath(value.paths.value()))
             return error;
     }
     if (value.rectangle.has_value()) {
-        write(",\"" "rectangle" "\":");
+        json += ",\"" "rectangle" "\":";
         if (Error error = serializeOctopusRectangle(value.rectangle.value()))
             return error;
     }
     if (value.cornerRadius.has_value()) {
-        write(",\"" "cornerRadius" "\":");
+        json += ",\"" "cornerRadius" "\":";
         if (Error error = serializeDouble(value.cornerRadius.value()))
             return error;
     }
     if (value.cornerRadii.has_value()) {
-        write(",\"" "cornerRadii" "\":");
+        json += ",\"" "cornerRadii" "\":";
         if (Error error = serializeStdVectorDouble(value.cornerRadii.value()))
             return error;
     }
-    write(",\"" "transform" "\":");
+    json += ",\"" "transform" "\":";
     if (Error error = serializeDouble_6(value.transform))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFillType(octopus::Fill::Type const &value) {
+Serializer::Error Serializer::serializeOctopusFillType(const octopus::Fill::Type &value) {
     switch (value) {
-        case octopus::Fill::Type::COLOR: write("\"COLOR\""); break;
-        case octopus::Fill::Type::GRADIENT: write("\"GRADIENT\""); break;
-        case octopus::Fill::Type::IMAGE: write("\"IMAGE\""); break;
+        case octopus::Fill::Type::COLOR: json += "\"COLOR\""; break;
+        case octopus::Fill::Type::GRADIENT: json += "\"GRADIENT\""; break;
+        case octopus::Fill::Type::IMAGE: json += "\"IMAGE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusColor(octopus::Color const &value) {
-    write("{\"" "r" "\":");
+Serializer::Error Serializer::serializeOctopusColor(const octopus::Color &value) {
+    json += "{\"" "r" "\":";
     if (Error error = serializeDouble(value.r))
         return error;
-    write(",\"" "g" "\":");
+    json += ",\"" "g" "\":";
     if (Error error = serializeDouble(value.g))
         return error;
-    write(",\"" "b" "\":");
+    json += ",\"" "b" "\":";
     if (Error error = serializeDouble(value.b))
         return error;
-    write(",\"" "a" "\":");
+    json += ",\"" "a" "\":";
     if (Error error = serializeDouble(value.a))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusGradientType(octopus::Gradient::Type const &value) {
+Serializer::Error Serializer::serializeOctopusGradientType(const octopus::Gradient::Type &value) {
     switch (value) {
-        case octopus::Gradient::Type::LINEAR: write("\"LINEAR\""); break;
-        case octopus::Gradient::Type::RADIAL: write("\"RADIAL\""); break;
-        case octopus::Gradient::Type::ANGULAR: write("\"ANGULAR\""); break;
-        case octopus::Gradient::Type::DIAMOND: write("\"DIAMOND\""); break;
+        case octopus::Gradient::Type::LINEAR: json += "\"LINEAR\""; break;
+        case octopus::Gradient::Type::RADIAL: json += "\"RADIAL\""; break;
+        case octopus::Gradient::Type::ANGULAR: json += "\"ANGULAR\""; break;
+        case octopus::Gradient::Type::DIAMOND: json += "\"DIAMOND\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusGradientInterpolation(octopus::Gradient::Interpolation const &value) {
+Serializer::Error Serializer::serializeOctopusGradientInterpolation(const octopus::Gradient::Interpolation &value) {
     switch (value) {
-        case octopus::Gradient::Interpolation::LINEAR: write("\"LINEAR\""); break;
-        case octopus::Gradient::Interpolation::POWER: write("\"POWER\""); break;
-        case octopus::Gradient::Interpolation::REVERSE_POWER: write("\"REVERSE_POWER\""); break;
+        case octopus::Gradient::Interpolation::LINEAR: json += "\"LINEAR\""; break;
+        case octopus::Gradient::Interpolation::POWER: json += "\"POWER\""; break;
+        case octopus::Gradient::Interpolation::REVERSE_POWER: json += "\"REVERSE_POWER\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusGradientColorStop(octopus::Gradient::ColorStop const &value) {
-    write("{\"" "position" "\":");
+Serializer::Error Serializer::serializeOctopusGradientColorStop(const octopus::Gradient::ColorStop &value) {
+    json += "{\"" "position" "\":";
     if (Error error = serializeDouble(value.position))
         return error;
-    write(",\"" "interpolation" "\":");
+    json += ",\"" "interpolation" "\":";
     if (Error error = serializeOctopusGradientInterpolation(value.interpolation))
         return error;
     if (value.interpolationParameter.has_value()) {
-        write(",\"" "interpolationParameter" "\":");
+        json += ",\"" "interpolationParameter" "\":";
         if (Error error = serializeDouble(value.interpolationParameter.value()))
             return error;
     }
-    write(",\"" "color" "\":");
+    json += ",\"" "color" "\":";
     if (Error error = serializeOctopusColor(value.color))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusGradientColorStop(std::vector<octopus::Gradient::ColorStop> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusGradientColorStop(const std::vector<octopus::Gradient::ColorStop> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Gradient::ColorStop>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Gradient::ColorStop const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusGradientColorStop(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Gradient::ColorStop>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Gradient::ColorStop const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusGradientColorStop(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusGradient(octopus::Gradient const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusGradient(const octopus::Gradient &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusGradientType(value.type))
         return error;
-    write(",\"" "stops" "\":");
+    json += ",\"" "stops" "\":";
     if (Error error = serializeStdVectorOctopusGradientColorStop(value.stops))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusImageRefType(octopus::ImageRef::Type const &value) {
+Serializer::Error Serializer::serializeOctopusImageRefType(const octopus::ImageRef::Type &value) {
     switch (value) {
-        case octopus::ImageRef::Type::PATH: write("\"PATH\""); break;
-        case octopus::ImageRef::Type::RESOURCE_REF: write("\"RESOURCE_REF\""); break;
+        case octopus::ImageRef::Type::PATH: json += "\"PATH\""; break;
+        case octopus::ImageRef::Type::RESOURCE_REF: json += "\"RESOURCE_REF\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusImageRef(octopus::ImageRef const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusImageRef(const octopus::ImageRef &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusImageRefType(value.type))
         return error;
-    write(",\"" "value" "\":");
+    json += ",\"" "value" "\":";
     if (Error error = serializeStdString(value.value))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusImage(octopus::Image const &value) {
-    write("{\"" "ref" "\":");
+Serializer::Error Serializer::serializeOctopusImage(const octopus::Image &value) {
+    json += "{\"" "ref" "\":";
     if (Error error = serializeOctopusImageRef(value.ref))
         return error;
     if (value.subsection.has_value()) {
-        write(",\"" "subsection" "\":");
+        json += ",\"" "subsection" "\":";
         if (Error error = serializeOctopusRectangle(value.subsection.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFillPositioningLayout(octopus::Fill::Positioning::Layout const &value) {
+Serializer::Error Serializer::serializeOctopusFillPositioningLayout(const octopus::Fill::Positioning::Layout &value) {
     switch (value) {
-        case octopus::Fill::Positioning::Layout::STRETCH: write("\"STRETCH\""); break;
-        case octopus::Fill::Positioning::Layout::FILL: write("\"FILL\""); break;
-        case octopus::Fill::Positioning::Layout::FIT: write("\"FIT\""); break;
-        case octopus::Fill::Positioning::Layout::TILE: write("\"TILE\""); break;
+        case octopus::Fill::Positioning::Layout::STRETCH: json += "\"STRETCH\""; break;
+        case octopus::Fill::Positioning::Layout::FILL: json += "\"FILL\""; break;
+        case octopus::Fill::Positioning::Layout::FIT: json += "\"FIT\""; break;
+        case octopus::Fill::Positioning::Layout::TILE: json += "\"TILE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFillPositioningOrigin(octopus::Fill::Positioning::Origin const &value) {
+Serializer::Error Serializer::serializeOctopusFillPositioningOrigin(const octopus::Fill::Positioning::Origin &value) {
     switch (value) {
-        case octopus::Fill::Positioning::Origin::LAYER: write("\"LAYER\""); break;
-        case octopus::Fill::Positioning::Origin::PARENT: write("\"PARENT\""); break;
-        case octopus::Fill::Positioning::Origin::COMPONENT: write("\"COMPONENT\""); break;
-        case octopus::Fill::Positioning::Origin::ARTBOARD: write("\"ARTBOARD\""); break;
+        case octopus::Fill::Positioning::Origin::LAYER: json += "\"LAYER\""; break;
+        case octopus::Fill::Positioning::Origin::PARENT: json += "\"PARENT\""; break;
+        case octopus::Fill::Positioning::Origin::COMPONENT: json += "\"COMPONENT\""; break;
+        case octopus::Fill::Positioning::Origin::ARTBOARD: json += "\"ARTBOARD\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFillPositioning(octopus::Fill::Positioning const &value) {
-    write("{\"" "layout" "\":");
+Serializer::Error Serializer::serializeOctopusFillPositioning(const octopus::Fill::Positioning &value) {
+    json += "{\"" "layout" "\":";
     if (Error error = serializeOctopusFillPositioningLayout(value.layout))
         return error;
-    write(",\"" "origin" "\":");
+    json += ",\"" "origin" "\":";
     if (Error error = serializeOctopusFillPositioningOrigin(value.origin))
         return error;
-    write(",\"" "transform" "\":");
+    json += ",\"" "transform" "\":";
     if (Error error = serializeDouble_6(value.transform))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFilterType(octopus::Filter::Type const &value) {
+Serializer::Error Serializer::serializeOctopusFilterType(const octopus::Filter::Type &value) {
     switch (value) {
-        case octopus::Filter::Type::OPACITY_MULTIPLIER: write("\"OPACITY_MULTIPLIER\""); break;
-        case octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT: write("\"XD_BRIGHTNESS_ADJUSTMENT\""); break;
-        case octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT: write("\"SKETCH_BRIGHTNESS_ADJUSTMENT\""); break;
-        case octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT: write("\"SKETCH_COLOR_ADJUSTMENT\""); break;
-        case octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT: write("\"FIGMA_COLOR_ADJUSTMENT\""); break;
+        case octopus::Filter::Type::OPACITY_MULTIPLIER: json += "\"OPACITY_MULTIPLIER\""; break;
+        case octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT: json += "\"XD_BRIGHTNESS_ADJUSTMENT\""; break;
+        case octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT: json += "\"SKETCH_BRIGHTNESS_ADJUSTMENT\""; break;
+        case octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT: json += "\"SKETCH_COLOR_ADJUSTMENT\""; break;
+        case octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT: json += "\"FIGMA_COLOR_ADJUSTMENT\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusColorAdjustment(octopus::ColorAdjustment const &value) {
-    write("{\"" "hue" "\":");
+Serializer::Error Serializer::serializeOctopusColorAdjustment(const octopus::ColorAdjustment &value) {
+    json += "{\"" "hue" "\":";
     if (Error error = serializeDouble(value.hue))
         return error;
-    write(",\"" "saturation" "\":");
+    json += ",\"" "saturation" "\":";
     if (Error error = serializeDouble(value.saturation))
         return error;
-    write(",\"" "brightness" "\":");
+    json += ",\"" "brightness" "\":";
     if (Error error = serializeDouble(value.brightness))
         return error;
-    write(",\"" "contrast" "\":");
+    json += ",\"" "contrast" "\":";
     if (Error error = serializeDouble(value.contrast))
         return error;
-    write(",\"" "exposure" "\":");
+    json += ",\"" "exposure" "\":";
     if (Error error = serializeDouble(value.exposure))
         return error;
-    write(",\"" "temperature" "\":");
+    json += ",\"" "temperature" "\":";
     if (Error error = serializeDouble(value.temperature))
         return error;
-    write(",\"" "tint" "\":");
+    json += ",\"" "tint" "\":";
     if (Error error = serializeDouble(value.tint))
         return error;
-    write(",\"" "highlights" "\":");
+    json += ",\"" "highlights" "\":";
     if (Error error = serializeDouble(value.highlights))
         return error;
-    write(",\"" "shadows" "\":");
+    json += ",\"" "shadows" "\":";
     if (Error error = serializeDouble(value.shadows))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFilter(octopus::Filter const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusFilter(const octopus::Filter &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusFilterType(value.type))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
     if (value.opacity.has_value()) {
-        write(",\"" "opacity" "\":");
+        json += ",\"" "opacity" "\":";
         if (Error error = serializeDouble(value.opacity.value()))
             return error;
     }
     if (value.brightness.has_value()) {
-        write(",\"" "brightness" "\":");
+        json += ",\"" "brightness" "\":";
         if (Error error = serializeDouble(value.brightness.value()))
             return error;
     }
     if (value.colorAdjustment.has_value()) {
-        write(",\"" "colorAdjustment" "\":");
+        json += ",\"" "colorAdjustment" "\":";
         if (Error error = serializeOctopusColorAdjustment(value.colorAdjustment.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusFilter(std::vector<octopus::Filter> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusFilter(const std::vector<octopus::Filter> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Filter>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Filter const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusFilter(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Filter>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Filter const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusFilter(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFill(octopus::Fill const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusFill(const octopus::Fill &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusFillType(value.type))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
-    write(",\"" "blendMode" "\":");
+    json += ",\"" "blendMode" "\":";
     if (Error error = serializeOctopusBlendMode(value.blendMode))
         return error;
     if (value.color.has_value()) {
-        write(",\"" "color" "\":");
+        json += ",\"" "color" "\":";
         if (Error error = serializeOctopusColor(value.color.value()))
             return error;
     }
     if (value.gradient.has_value()) {
-        write(",\"" "gradient" "\":");
+        json += ",\"" "gradient" "\":";
         if (Error error = serializeOctopusGradient(value.gradient.value()))
             return error;
     }
     if (value.image.has_value()) {
-        write(",\"" "image" "\":");
+        json += ",\"" "image" "\":";
         if (Error error = serializeOctopusImage(value.image.value()))
             return error;
     }
     if (value.positioning.has_value()) {
-        write(",\"" "positioning" "\":");
+        json += ",\"" "positioning" "\":";
         if (Error error = serializeOctopusFillPositioning(value.positioning.value()))
             return error;
     }
     if (value.filters.has_value()) {
-        write(",\"" "filters" "\":");
+        json += ",\"" "filters" "\":";
         if (Error error = serializeStdVectorOctopusFilter(value.filters.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusFill(std::vector<octopus::Fill> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusFill(const std::vector<octopus::Fill> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Fill>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Fill const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusFill(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Fill>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Fill const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusFill(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusStrokePosition(octopus::Stroke::Position const &value) {
+Serializer::Error Serializer::serializeOctopusStrokePosition(const octopus::Stroke::Position &value) {
     switch (value) {
-        case octopus::Stroke::Position::OUTSIDE: write("\"OUTSIDE\""); break;
-        case octopus::Stroke::Position::CENTER: write("\"CENTER\""); break;
-        case octopus::Stroke::Position::INSIDE: write("\"INSIDE\""); break;
+        case octopus::Stroke::Position::OUTSIDE: json += "\"OUTSIDE\""; break;
+        case octopus::Stroke::Position::CENTER: json += "\"CENTER\""; break;
+        case octopus::Stroke::Position::INSIDE: json += "\"INSIDE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusVectorStrokeStyle(octopus::VectorStroke::Style const &value) {
+Serializer::Error Serializer::serializeOctopusVectorStrokeStyle(const octopus::VectorStroke::Style &value) {
     switch (value) {
-        case octopus::VectorStroke::Style::SOLID: write("\"SOLID\""); break;
-        case octopus::VectorStroke::Style::DASHED: write("\"DASHED\""); break;
-        case octopus::VectorStroke::Style::DOTTED: write("\"DOTTED\""); break;
+        case octopus::VectorStroke::Style::SOLID: json += "\"SOLID\""; break;
+        case octopus::VectorStroke::Style::DASHED: json += "\"DASHED\""; break;
+        case octopus::VectorStroke::Style::DOTTED: json += "\"DOTTED\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusVectorStrokeLineJoin(octopus::VectorStroke::LineJoin const &value) {
+Serializer::Error Serializer::serializeOctopusVectorStrokeLineJoin(const octopus::VectorStroke::LineJoin &value) {
     switch (value) {
-        case octopus::VectorStroke::LineJoin::MITER: write("\"MITER\""); break;
-        case octopus::VectorStroke::LineJoin::ROUND: write("\"ROUND\""); break;
-        case octopus::VectorStroke::LineJoin::BEVEL: write("\"BEVEL\""); break;
+        case octopus::VectorStroke::LineJoin::MITER: json += "\"MITER\""; break;
+        case octopus::VectorStroke::LineJoin::ROUND: json += "\"ROUND\""; break;
+        case octopus::VectorStroke::LineJoin::BEVEL: json += "\"BEVEL\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusVectorStrokeLineCap(octopus::VectorStroke::LineCap const &value) {
+Serializer::Error Serializer::serializeOctopusVectorStrokeLineCap(const octopus::VectorStroke::LineCap &value) {
     switch (value) {
-        case octopus::VectorStroke::LineCap::BUTT: write("\"BUTT\""); break;
-        case octopus::VectorStroke::LineCap::ROUND: write("\"ROUND\""); break;
-        case octopus::VectorStroke::LineCap::SQUARE: write("\"SQUARE\""); break;
+        case octopus::VectorStroke::LineCap::BUTT: json += "\"BUTT\""; break;
+        case octopus::VectorStroke::LineCap::ROUND: json += "\"ROUND\""; break;
+        case octopus::VectorStroke::LineCap::SQUARE: json += "\"SQUARE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusShapeStroke(octopus::Shape::Stroke const &value) {
-    write("{\"" "fill" "\":");
+Serializer::Error Serializer::serializeOctopusShapeStroke(const octopus::Shape::Stroke &value) {
+    json += "{\"" "fill" "\":";
     if (Error error = serializeOctopusFill(value.fill))
         return error;
-    write(",\"" "thickness" "\":");
+    json += ",\"" "thickness" "\":";
     if (Error error = serializeDouble(value.thickness))
         return error;
-    write(",\"" "position" "\":");
+    json += ",\"" "position" "\":";
     if (Error error = serializeOctopusStrokePosition(value.position))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
     if (value.style.has_value()) {
-        write(",\"" "style" "\":");
+        json += ",\"" "style" "\":";
         if (Error error = serializeOctopusVectorStrokeStyle(value.style.value()))
             return error;
     }
     if (value.lineJoin.has_value()) {
-        write(",\"" "lineJoin" "\":");
+        json += ",\"" "lineJoin" "\":";
         if (Error error = serializeOctopusVectorStrokeLineJoin(value.lineJoin.value()))
             return error;
     }
     if (value.lineCap.has_value()) {
-        write(",\"" "lineCap" "\":");
+        json += ",\"" "lineCap" "\":";
         if (Error error = serializeOctopusVectorStrokeLineCap(value.lineCap.value()))
             return error;
     }
     if (value.miterLimit.has_value()) {
-        write(",\"" "miterLimit" "\":");
+        json += ",\"" "miterLimit" "\":";
         if (Error error = serializeDouble(value.miterLimit.value()))
             return error;
     }
     if (value.dashing.has_value()) {
-        write(",\"" "dashing" "\":");
+        json += ",\"" "dashing" "\":";
         if (Error error = serializeStdVectorDouble(value.dashing.value()))
             return error;
     }
     if (value.dashOffset.has_value()) {
-        write(",\"" "dashOffset" "\":");
+        json += ",\"" "dashOffset" "\":";
         if (Error error = serializeDouble(value.dashOffset.value()))
             return error;
     }
     if (value.fillRule.has_value()) {
-        write(",\"" "fillRule" "\":");
+        json += ",\"" "fillRule" "\":";
         if (Error error = serializeOctopusShapeFillRule(value.fillRule.value()))
             return error;
     }
     if (value.path.has_value()) {
-        write(",\"" "path" "\":");
+        json += ",\"" "path" "\":";
         if (Error error = serializeOctopusPath(value.path.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusShapeStroke(std::vector<octopus::Shape::Stroke> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusShapeStroke(const std::vector<octopus::Shape::Stroke> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Shape::Stroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Shape::Stroke const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusShapeStroke(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Shape::Stroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Shape::Stroke const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusShapeStroke(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusShape(octopus::Shape const &value) {
+Serializer::Error Serializer::serializeOctopusShape(const octopus::Shape &value) {
     bool prev = false;
-    write('{');
+    json.push_back('{');
     if (value.fillRule.has_value()) {
-        write("\"" "fillRule" "\":");
+        json += "\"" "fillRule" "\":";
         if (Error error = serializeOctopusShapeFillRule(value.fillRule.value()))
             return error;
         prev = true;
     }
     if (value.path.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "path" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "path" "\":";
         if (Error error = serializeOctopusPath(value.path.value()))
             return error;
         prev = true;
     }
-    if (prev)
-        write(',');
-    write("\"" "fills" "\":");
+    if (prev) { json.push_back(','); }
+    json += "\"" "fills" "\":";
     if (Error error = serializeStdVectorOctopusFill(value.fills))
         return error;
-    write(",\"" "strokes" "\":");
+    json += ",\"" "strokes" "\":";
     if (Error error = serializeStdVectorOctopusShapeStroke(value.strokes))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusFont(octopus::Font const &value) {
-    write("{\"" "postScriptName" "\":");
+Serializer::Error Serializer::serializeOctopusFont(const octopus::Font &value) {
+    json += "{\"" "postScriptName" "\":";
     if (Error error = serializeStdString(value.postScriptName))
         return error;
     if (value.family.has_value()) {
-        write(",\"" "family" "\":");
+        json += ",\"" "family" "\":";
         if (Error error = serializeStdString(value.family.value()))
             return error;
     }
     if (value.style.has_value()) {
-        write(",\"" "style" "\":");
+        json += ",\"" "style" "\":";
         if (Error error = serializeStdString(value.style.value()))
             return error;
     }
     if (value.syntheticPostScriptName.has_value()) {
-        write(",\"" "syntheticPostScriptName" "\":");
+        json += ",\"" "syntheticPostScriptName" "\":";
         if (Error error = serializeBool(value.syntheticPostScriptName.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeInt(int const &value) {
+Serializer::Error Serializer::serializeInt(const int &value) {
     writeSigned<unsigned>(value);
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusOpenTypeFeature(octopus::OpenTypeFeature const &value) {
-    write("{\"" "tag" "\":");
+Serializer::Error Serializer::serializeOctopusOpenTypeFeature(const octopus::OpenTypeFeature &value) {
+    json += "{\"" "tag" "\":";
     if (Error error = serializeStdString(value.tag))
         return error;
-    write(",\"" "value" "\":");
+    json += ",\"" "value" "\":";
     if (Error error = serializeInt(value.value))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusOpenTypeFeature(std::vector<octopus::OpenTypeFeature> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusOpenTypeFeature(const std::vector<octopus::OpenTypeFeature> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::OpenTypeFeature>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::OpenTypeFeature const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusOpenTypeFeature(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::OpenTypeFeature>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::OpenTypeFeature const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusOpenTypeFeature(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextStyleLigatures(octopus::TextStyle::Ligatures const &value) {
+Serializer::Error Serializer::serializeOctopusTextStyleLigatures(const octopus::TextStyle::Ligatures &value) {
     switch (value) {
-        case octopus::TextStyle::Ligatures::NONE: write("\"NONE\""); break;
-        case octopus::TextStyle::Ligatures::STANDARD: write("\"STANDARD\""); break;
-        case octopus::TextStyle::Ligatures::ALL: write("\"ALL\""); break;
+        case octopus::TextStyle::Ligatures::NONE: json += "\"NONE\""; break;
+        case octopus::TextStyle::Ligatures::STANDARD: json += "\"STANDARD\""; break;
+        case octopus::TextStyle::Ligatures::ALL: json += "\"ALL\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextStyleUnderline(octopus::TextStyle::Underline const &value) {
+Serializer::Error Serializer::serializeOctopusTextStyleUnderline(const octopus::TextStyle::Underline &value) {
     switch (value) {
-        case octopus::TextStyle::Underline::NONE: write("\"NONE\""); break;
-        case octopus::TextStyle::Underline::SINGLE: write("\"SINGLE\""); break;
-        case octopus::TextStyle::Underline::DOUBLE: write("\"DOUBLE\""); break;
+        case octopus::TextStyle::Underline::NONE: json += "\"NONE\""; break;
+        case octopus::TextStyle::Underline::SINGLE: json += "\"SINGLE\""; break;
+        case octopus::TextStyle::Underline::DOUBLE: json += "\"DOUBLE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextStyleLetterCase(octopus::TextStyle::LetterCase const &value) {
+Serializer::Error Serializer::serializeOctopusTextStyleLetterCase(const octopus::TextStyle::LetterCase &value) {
     switch (value) {
-        case octopus::TextStyle::LetterCase::NONE: write("\"NONE\""); break;
-        case octopus::TextStyle::LetterCase::UPPERCASE: write("\"UPPERCASE\""); break;
-        case octopus::TextStyle::LetterCase::LOWERCASE: write("\"LOWERCASE\""); break;
-        case octopus::TextStyle::LetterCase::SMALL_CAPS: write("\"SMALL_CAPS\""); break;
-        case octopus::TextStyle::LetterCase::TITLE_CASE: write("\"TITLE_CASE\""); break;
+        case octopus::TextStyle::LetterCase::NONE: json += "\"NONE\""; break;
+        case octopus::TextStyle::LetterCase::UPPERCASE: json += "\"UPPERCASE\""; break;
+        case octopus::TextStyle::LetterCase::LOWERCASE: json += "\"LOWERCASE\""; break;
+        case octopus::TextStyle::LetterCase::SMALL_CAPS: json += "\"SMALL_CAPS\""; break;
+        case octopus::TextStyle::LetterCase::TITLE_CASE: json += "\"TITLE_CASE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusVectorStroke(octopus::VectorStroke const &value) {
-    write("{\"" "fill" "\":");
+Serializer::Error Serializer::serializeOctopusVectorStroke(const octopus::VectorStroke &value) {
+    json += "{\"" "fill" "\":";
     if (Error error = serializeOctopusFill(value.fill))
         return error;
-    write(",\"" "thickness" "\":");
+    json += ",\"" "thickness" "\":";
     if (Error error = serializeDouble(value.thickness))
         return error;
-    write(",\"" "position" "\":");
+    json += ",\"" "position" "\":";
     if (Error error = serializeOctopusStrokePosition(value.position))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
     if (value.style.has_value()) {
-        write(",\"" "style" "\":");
+        json += ",\"" "style" "\":";
         if (Error error = serializeOctopusVectorStrokeStyle(value.style.value()))
             return error;
     }
     if (value.lineJoin.has_value()) {
-        write(",\"" "lineJoin" "\":");
+        json += ",\"" "lineJoin" "\":";
         if (Error error = serializeOctopusVectorStrokeLineJoin(value.lineJoin.value()))
             return error;
     }
     if (value.lineCap.has_value()) {
-        write(",\"" "lineCap" "\":");
+        json += ",\"" "lineCap" "\":";
         if (Error error = serializeOctopusVectorStrokeLineCap(value.lineCap.value()))
             return error;
     }
     if (value.miterLimit.has_value()) {
-        write(",\"" "miterLimit" "\":");
+        json += ",\"" "miterLimit" "\":";
         if (Error error = serializeDouble(value.miterLimit.value()))
             return error;
     }
     if (value.dashing.has_value()) {
-        write(",\"" "dashing" "\":");
+        json += ",\"" "dashing" "\":";
         if (Error error = serializeStdVectorDouble(value.dashing.value()))
             return error;
     }
     if (value.dashOffset.has_value()) {
-        write(",\"" "dashOffset" "\":");
+        json += ",\"" "dashOffset" "\":";
         if (Error error = serializeDouble(value.dashOffset.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusVectorStroke(std::vector<octopus::VectorStroke> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusVectorStroke(const std::vector<octopus::VectorStroke> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::VectorStroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::VectorStroke const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusVectorStroke(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::VectorStroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::VectorStroke const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusVectorStroke(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextStyle(octopus::TextStyle const &value) {
+Serializer::Error Serializer::serializeOctopusTextStyle(const octopus::TextStyle &value) {
     bool prev = false;
-    write('{');
+    json.push_back('{');
     if (value.font.has_value()) {
-        write("\"" "font" "\":");
+        json += "\"" "font" "\":";
         if (Error error = serializeOctopusFont(value.font.value()))
             return error;
         prev = true;
     }
     if (value.fontSize.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "fontSize" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "fontSize" "\":";
         if (Error error = serializeDouble(value.fontSize.value()))
             return error;
         prev = true;
     }
     if (value.lineHeight.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "lineHeight" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "lineHeight" "\":";
         if (Error error = serializeDouble(value.lineHeight.value()))
             return error;
         prev = true;
     }
     if (value.letterSpacing.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "letterSpacing" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "letterSpacing" "\":";
         if (Error error = serializeDouble(value.letterSpacing.value()))
             return error;
         prev = true;
     }
     if (value.kerning.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "kerning" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "kerning" "\":";
         if (Error error = serializeBool(value.kerning.value()))
             return error;
         prev = true;
     }
     if (value.features.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "features" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "features" "\":";
         if (Error error = serializeStdVectorOctopusOpenTypeFeature(value.features.value()))
             return error;
         prev = true;
     }
     if (value.ligatures.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "ligatures" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "ligatures" "\":";
         if (Error error = serializeOctopusTextStyleLigatures(value.ligatures.value()))
             return error;
         prev = true;
     }
     if (value.underline.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "underline" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "underline" "\":";
         if (Error error = serializeOctopusTextStyleUnderline(value.underline.value()))
             return error;
         prev = true;
     }
     if (value.linethrough.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "linethrough" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "linethrough" "\":";
         if (Error error = serializeBool(value.linethrough.value()))
             return error;
         prev = true;
     }
     if (value.letterCase.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "letterCase" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "letterCase" "\":";
         if (Error error = serializeOctopusTextStyleLetterCase(value.letterCase.value()))
             return error;
         prev = true;
     }
     if (value.fills.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "fills" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "fills" "\":";
         if (Error error = serializeStdVectorOctopusFill(value.fills.value()))
             return error;
         prev = true;
     }
     if (value.strokes.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "strokes" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "strokes" "\":";
         if (Error error = serializeStdVectorOctopusVectorStroke(value.strokes.value()))
             return error;
         prev = true;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusStyleRangeRange(octopus::StyleRange::Range const &value) {
-    write("{\"" "from" "\":");
+Serializer::Error Serializer::serializeOctopusStyleRangeRange(const octopus::StyleRange::Range &value) {
+    json += "{\"" "from" "\":";
     if (Error error = serializeInt(value.from))
         return error;
-    write(",\"" "to" "\":");
+    json += ",\"" "to" "\":";
     if (Error error = serializeInt(value.to))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusStyleRangeRange(std::vector<octopus::StyleRange::Range> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusStyleRangeRange(const std::vector<octopus::StyleRange::Range> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::StyleRange::Range>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::StyleRange::Range const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusStyleRangeRange(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::StyleRange::Range>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::StyleRange::Range const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusStyleRangeRange(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusStyleRange(octopus::StyleRange const &value) {
-    write("{\"" "style" "\":");
+Serializer::Error Serializer::serializeOctopusStyleRange(const octopus::StyleRange &value) {
+    json += "{\"" "style" "\":";
     if (Error error = serializeOctopusTextStyle(value.style))
         return error;
-    write(",\"" "ranges" "\":");
+    json += ",\"" "ranges" "\":";
     if (Error error = serializeStdVectorOctopusStyleRangeRange(value.ranges))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusStyleRange(std::vector<octopus::StyleRange> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusStyleRange(const std::vector<octopus::StyleRange> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::StyleRange>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::StyleRange const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusStyleRange(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::StyleRange>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::StyleRange const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusStyleRange(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextFrameMode(octopus::TextFrame::Mode const &value) {
+Serializer::Error Serializer::serializeOctopusTextFrameMode(const octopus::TextFrame::Mode &value) {
     switch (value) {
-        case octopus::TextFrame::Mode::AUTO_WIDTH: write("\"AUTO_WIDTH\""); break;
-        case octopus::TextFrame::Mode::AUTO_HEIGHT: write("\"AUTO_HEIGHT\""); break;
-        case octopus::TextFrame::Mode::FIXED: write("\"FIXED\""); break;
+        case octopus::TextFrame::Mode::AUTO_WIDTH: json += "\"AUTO_WIDTH\""; break;
+        case octopus::TextFrame::Mode::AUTO_HEIGHT: json += "\"AUTO_HEIGHT\""; break;
+        case octopus::TextFrame::Mode::FIXED: json += "\"FIXED\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextFrame(octopus::TextFrame const &value) {
-    write("{\"" "mode" "\":");
+Serializer::Error Serializer::serializeOctopusTextFrame(const octopus::TextFrame &value) {
+    json += "{\"" "mode" "\":";
     if (Error error = serializeOctopusTextFrameMode(value.mode))
         return error;
     if (value.size.has_value()) {
-        write(",\"" "size" "\":");
+        json += ",\"" "size" "\":";
         if (Error error = serializeOctopusDimensions(value.size.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextHorizontalAlign(octopus::Text::HorizontalAlign const &value) {
+Serializer::Error Serializer::serializeOctopusTextHorizontalAlign(const octopus::Text::HorizontalAlign &value) {
     switch (value) {
-        case octopus::Text::HorizontalAlign::LEFT: write("\"LEFT\""); break;
-        case octopus::Text::HorizontalAlign::CENTER: write("\"CENTER\""); break;
-        case octopus::Text::HorizontalAlign::RIGHT: write("\"RIGHT\""); break;
-        case octopus::Text::HorizontalAlign::JUSTIFY: write("\"JUSTIFY\""); break;
+        case octopus::Text::HorizontalAlign::LEFT: json += "\"LEFT\""; break;
+        case octopus::Text::HorizontalAlign::CENTER: json += "\"CENTER\""; break;
+        case octopus::Text::HorizontalAlign::RIGHT: json += "\"RIGHT\""; break;
+        case octopus::Text::HorizontalAlign::JUSTIFY: json += "\"JUSTIFY\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextVerticalAlign(octopus::Text::VerticalAlign const &value) {
+Serializer::Error Serializer::serializeOctopusTextVerticalAlign(const octopus::Text::VerticalAlign &value) {
     switch (value) {
-        case octopus::Text::VerticalAlign::TOP: write("\"TOP\""); break;
-        case octopus::Text::VerticalAlign::CENTER: write("\"CENTER\""); break;
-        case octopus::Text::VerticalAlign::BOTTOM: write("\"BOTTOM\""); break;
+        case octopus::Text::VerticalAlign::TOP: json += "\"TOP\""; break;
+        case octopus::Text::VerticalAlign::CENTER: json += "\"CENTER\""; break;
+        case octopus::Text::VerticalAlign::BOTTOM: json += "\"BOTTOM\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextBaselinePolicy(octopus::Text::BaselinePolicy const &value) {
+Serializer::Error Serializer::serializeOctopusTextBaselinePolicy(const octopus::Text::BaselinePolicy &value) {
     switch (value) {
-        case octopus::Text::BaselinePolicy::SET: write("\"SET\""); break;
-        case octopus::Text::BaselinePolicy::CENTER: write("\"CENTER\""); break;
-        case octopus::Text::BaselinePolicy::OFFSET_ASCENDER: write("\"OFFSET_ASCENDER\""); break;
-        case octopus::Text::BaselinePolicy::OFFSET_BEARING: write("\"OFFSET_BEARING\""); break;
+        case octopus::Text::BaselinePolicy::SET: json += "\"SET\""; break;
+        case octopus::Text::BaselinePolicy::CENTER: json += "\"CENTER\""; break;
+        case octopus::Text::BaselinePolicy::OFFSET_ASCENDER: json += "\"OFFSET_ASCENDER\""; break;
+        case octopus::Text::BaselinePolicy::OFFSET_BEARING: json += "\"OFFSET_BEARING\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusTextOverflowPolicy(octopus::Text::OverflowPolicy const &value) {
+Serializer::Error Serializer::serializeOctopusTextOverflowPolicy(const octopus::Text::OverflowPolicy &value) {
     switch (value) {
-        case octopus::Text::OverflowPolicy::NO_OVERFLOW: write("\"NO_OVERFLOW\""); break;
-        case octopus::Text::OverflowPolicy::CLIP_LINE: write("\"CLIP_LINE\""); break;
-        case octopus::Text::OverflowPolicy::EXTEND_LINE: write("\"EXTEND_LINE\""); break;
-        case octopus::Text::OverflowPolicy::EXTEND_ALL: write("\"EXTEND_ALL\""); break;
+        case octopus::Text::OverflowPolicy::NO_OVERFLOW: json += "\"NO_OVERFLOW\""; break;
+        case octopus::Text::OverflowPolicy::CLIP_LINE: json += "\"CLIP_LINE\""; break;
+        case octopus::Text::OverflowPolicy::EXTEND_LINE: json += "\"EXTEND_LINE\""; break;
+        case octopus::Text::OverflowPolicy::EXTEND_ALL: json += "\"EXTEND_ALL\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusText(octopus::Text const &value) {
-    write("{\"" "value" "\":");
+Serializer::Error Serializer::serializeOctopusText(const octopus::Text &value) {
+    json += "{\"" "value" "\":";
     if (Error error = serializeStdString(value.value))
         return error;
-    write(",\"" "defaultStyle" "\":");
+    json += ",\"" "defaultStyle" "\":";
     if (Error error = serializeOctopusTextStyle(value.defaultStyle))
         return error;
     if (value.styles.has_value()) {
-        write(",\"" "styles" "\":");
+        json += ",\"" "styles" "\":";
         if (Error error = serializeStdVectorOctopusStyleRange(value.styles.value()))
             return error;
     }
-    write(",\"" "transform" "\":");
+    json += ",\"" "transform" "\":";
     if (Error error = serializeDouble_6(value.transform))
         return error;
     if (value.frame.has_value()) {
-        write(",\"" "frame" "\":");
+        json += ",\"" "frame" "\":";
         if (Error error = serializeOctopusTextFrame(value.frame.value()))
             return error;
     }
-    write(",\"" "horizontalAlign" "\":");
+    json += ",\"" "horizontalAlign" "\":";
     if (Error error = serializeOctopusTextHorizontalAlign(value.horizontalAlign))
         return error;
-    write(",\"" "verticalAlign" "\":");
+    json += ",\"" "verticalAlign" "\":";
     if (Error error = serializeOctopusTextVerticalAlign(value.verticalAlign))
         return error;
-    write(",\"" "baselinePolicy" "\":");
+    json += ",\"" "baselinePolicy" "\":";
     if (Error error = serializeOctopusTextBaselinePolicy(value.baselinePolicy))
         return error;
-    write(",\"" "overflowPolicy" "\":");
+    json += ",\"" "overflowPolicy" "\":";
     if (Error error = serializeOctopusTextOverflowPolicy(value.overflowPolicy))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusMaskBasis(octopus::MaskBasis const &value) {
+Serializer::Error Serializer::serializeOctopusMaskBasis(const octopus::MaskBasis &value) {
     switch (value) {
-        case octopus::MaskBasis::SOLID: write("\"SOLID\""); break;
-        case octopus::MaskBasis::BODY: write("\"BODY\""); break;
-        case octopus::MaskBasis::BODY_EMBED: write("\"BODY_EMBED\""); break;
-        case octopus::MaskBasis::FILL: write("\"FILL\""); break;
-        case octopus::MaskBasis::FILL_EMBED: write("\"FILL_EMBED\""); break;
-        case octopus::MaskBasis::LAYER_AND_EFFECTS: write("\"LAYER_AND_EFFECTS\""); break;
+        case octopus::MaskBasis::SOLID: json += "\"SOLID\""; break;
+        case octopus::MaskBasis::BODY: json += "\"BODY\""; break;
+        case octopus::MaskBasis::BODY_EMBED: json += "\"BODY_EMBED\""; break;
+        case octopus::MaskBasis::FILL: json += "\"FILL\""; break;
+        case octopus::MaskBasis::FILL_EMBED: json += "\"FILL_EMBED\""; break;
+        case octopus::MaskBasis::LAYER_AND_EFFECTS: json += "\"LAYER_AND_EFFECTS\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdArrayDouble5(std::array<double, 5> const &value) {
-    write('[');
+Serializer::Error Serializer::serializeStdArrayDouble5(const std::array<double, 5> &value) {
+    json.push_back('[');
     if (Error error = serializeDouble(value[0]))
         return error;
     for (int i = 1; i < 5; ++i) {
-        write(',');
+        json.push_back(',');
         if (Error error = serializeDouble(value[i]))
             return error;
     }
-    write(']');
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdListOctopusLayer(std::list<octopus::Layer> const &value) {
+Serializer::Error Serializer::serializeStdListOctopusLayer(const std::list<octopus::Layer> &value) {
     bool prev = false;
-    write('[');
-    for (std::list<octopus::Layer>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Layer const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusLayer(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::list<octopus::Layer>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Layer const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusLayer(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorStdString(std::vector<std::string> const &value) {
+Serializer::Error Serializer::serializeStdVectorStdString(const std::vector<std::string> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeStdString(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeStdString(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusLayerChangeSubject(octopus::LayerChange::Subject const &value) {
+Serializer::Error Serializer::serializeOctopusLayerChangeSubject(const octopus::LayerChange::Subject &value) {
     switch (value) {
-        case octopus::LayerChange::Subject::LAYER: write("\"LAYER\""); break;
-        case octopus::LayerChange::Subject::SHAPE: write("\"SHAPE\""); break;
-        case octopus::LayerChange::Subject::TEXT: write("\"TEXT\""); break;
-        case octopus::LayerChange::Subject::FILL: write("\"FILL\""); break;
-        case octopus::LayerChange::Subject::STROKE: write("\"STROKE\""); break;
-        case octopus::LayerChange::Subject::STROKE_FILL: write("\"STROKE_FILL\""); break;
-        case octopus::LayerChange::Subject::EFFECT: write("\"EFFECT\""); break;
-        case octopus::LayerChange::Subject::EFFECT_FILL: write("\"EFFECT_FILL\""); break;
-        case octopus::LayerChange::Subject::FILL_FILTER: write("\"FILL_FILTER\""); break;
-        case octopus::LayerChange::Subject::STROKE_FILL_FILTER: write("\"STROKE_FILL_FILTER\""); break;
-        case octopus::LayerChange::Subject::EFFECT_FILL_FILTER: write("\"EFFECT_FILL_FILTER\""); break;
+        case octopus::LayerChange::Subject::LAYER: json += "\"LAYER\""; break;
+        case octopus::LayerChange::Subject::SHAPE: json += "\"SHAPE\""; break;
+        case octopus::LayerChange::Subject::TEXT: json += "\"TEXT\""; break;
+        case octopus::LayerChange::Subject::FILL: json += "\"FILL\""; break;
+        case octopus::LayerChange::Subject::STROKE: json += "\"STROKE\""; break;
+        case octopus::LayerChange::Subject::STROKE_FILL: json += "\"STROKE_FILL\""; break;
+        case octopus::LayerChange::Subject::EFFECT: json += "\"EFFECT\""; break;
+        case octopus::LayerChange::Subject::EFFECT_FILL: json += "\"EFFECT_FILL\""; break;
+        case octopus::LayerChange::Subject::FILL_FILTER: json += "\"FILL_FILTER\""; break;
+        case octopus::LayerChange::Subject::STROKE_FILL_FILTER: json += "\"STROKE_FILL_FILTER\""; break;
+        case octopus::LayerChange::Subject::EFFECT_FILL_FILTER: json += "\"EFFECT_FILL_FILTER\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusLayerChangeOp(octopus::LayerChange::Op const &value) {
+Serializer::Error Serializer::serializeOctopusLayerChangeOp(const octopus::LayerChange::Op &value) {
     switch (value) {
-        case octopus::LayerChange::Op::PROPERTY_CHANGE: write("\"PROPERTY_CHANGE\""); break;
-        case octopus::LayerChange::Op::INSERT: write("\"INSERT\""); break;
-        case octopus::LayerChange::Op::REPLACE: write("\"REPLACE\""); break;
-        case octopus::LayerChange::Op::REMOVE: write("\"REMOVE\""); break;
+        case octopus::LayerChange::Op::PROPERTY_CHANGE: json += "\"PROPERTY_CHANGE\""; break;
+        case octopus::LayerChange::Op::INSERT: json += "\"INSERT\""; break;
+        case octopus::LayerChange::Op::REPLACE: json += "\"REPLACE\""; break;
+        case octopus::LayerChange::Op::REMOVE: json += "\"REMOVE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusEffectType(octopus::Effect::Type const &value) {
+Serializer::Error Serializer::serializeOctopusEffectType(const octopus::Effect::Type &value) {
     switch (value) {
-        case octopus::Effect::Type::OVERLAY: write("\"OVERLAY\""); break;
-        case octopus::Effect::Type::STROKE: write("\"STROKE\""); break;
-        case octopus::Effect::Type::DROP_SHADOW: write("\"DROP_SHADOW\""); break;
-        case octopus::Effect::Type::INNER_SHADOW: write("\"INNER_SHADOW\""); break;
-        case octopus::Effect::Type::OUTER_GLOW: write("\"OUTER_GLOW\""); break;
-        case octopus::Effect::Type::INNER_GLOW: write("\"INNER_GLOW\""); break;
-        case octopus::Effect::Type::GAUSSIAN_BLUR: write("\"GAUSSIAN_BLUR\""); break;
-        case octopus::Effect::Type::BOUNDED_BLUR: write("\"BOUNDED_BLUR\""); break;
-        case octopus::Effect::Type::BLUR: write("\"BLUR\""); break;
-        case octopus::Effect::Type::OTHER: write("\"OTHER\""); break;
+        case octopus::Effect::Type::OVERLAY: json += "\"OVERLAY\""; break;
+        case octopus::Effect::Type::STROKE: json += "\"STROKE\""; break;
+        case octopus::Effect::Type::DROP_SHADOW: json += "\"DROP_SHADOW\""; break;
+        case octopus::Effect::Type::INNER_SHADOW: json += "\"INNER_SHADOW\""; break;
+        case octopus::Effect::Type::OUTER_GLOW: json += "\"OUTER_GLOW\""; break;
+        case octopus::Effect::Type::INNER_GLOW: json += "\"INNER_GLOW\""; break;
+        case octopus::Effect::Type::GAUSSIAN_BLUR: json += "\"GAUSSIAN_BLUR\""; break;
+        case octopus::Effect::Type::BOUNDED_BLUR: json += "\"BOUNDED_BLUR\""; break;
+        case octopus::Effect::Type::BLUR: json += "\"BLUR\""; break;
+        case octopus::Effect::Type::OTHER: json += "\"OTHER\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusEffectBasis(octopus::EffectBasis const &value) {
+Serializer::Error Serializer::serializeOctopusEffectBasis(const octopus::EffectBasis &value) {
     switch (value) {
-        case octopus::EffectBasis::BODY: write("\"BODY\""); break;
-        case octopus::EffectBasis::BODY_AND_STROKES: write("\"BODY_AND_STROKES\""); break;
-        case octopus::EffectBasis::FILL: write("\"FILL\""); break;
-        case octopus::EffectBasis::LAYER_AND_EFFECTS: write("\"LAYER_AND_EFFECTS\""); break;
-        case octopus::EffectBasis::BACKGROUND: write("\"BACKGROUND\""); break;
+        case octopus::EffectBasis::BODY: json += "\"BODY\""; break;
+        case octopus::EffectBasis::BODY_AND_STROKES: json += "\"BODY_AND_STROKES\""; break;
+        case octopus::EffectBasis::FILL: json += "\"FILL\""; break;
+        case octopus::EffectBasis::LAYER_AND_EFFECTS: json += "\"LAYER_AND_EFFECTS\""; break;
+        case octopus::EffectBasis::BACKGROUND: json += "\"BACKGROUND\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusStroke(octopus::Stroke const &value) {
-    write("{\"" "fill" "\":");
+Serializer::Error Serializer::serializeOctopusStroke(const octopus::Stroke &value) {
+    json += "{\"" "fill" "\":";
     if (Error error = serializeOctopusFill(value.fill))
         return error;
-    write(",\"" "thickness" "\":");
+    json += ",\"" "thickness" "\":";
     if (Error error = serializeDouble(value.thickness))
         return error;
-    write(",\"" "position" "\":");
+    json += ",\"" "position" "\":";
     if (Error error = serializeOctopusStrokePosition(value.position))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusVec2(octopus::Vec2 const &value) {
-    write("{\"" "x" "\":");
+Serializer::Error Serializer::serializeOctopusVec2(const octopus::Vec2 &value) {
+    json += "{\"" "x" "\":";
     if (Error error = serializeDouble(value.x))
         return error;
-    write(",\"" "y" "\":");
+    json += ",\"" "y" "\":";
     if (Error error = serializeDouble(value.y))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusShadow(octopus::Shadow const &value) {
-    write("{\"" "offset" "\":");
+Serializer::Error Serializer::serializeOctopusShadow(const octopus::Shadow &value) {
+    json += "{\"" "offset" "\":";
     if (Error error = serializeOctopusVec2(value.offset))
         return error;
-    write(",\"" "blur" "\":");
+    json += ",\"" "blur" "\":";
     if (Error error = serializeDouble(value.blur))
         return error;
-    write(",\"" "choke" "\":");
+    json += ",\"" "choke" "\":";
     if (Error error = serializeDouble(value.choke))
         return error;
-    write(",\"" "color" "\":");
+    json += ",\"" "color" "\":";
     if (Error error = serializeOctopusColor(value.color))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusEffect(octopus::Effect const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusEffect(const octopus::Effect &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusEffectType(value.type))
         return error;
-    write(",\"" "basis" "\":");
+    json += ",\"" "basis" "\":";
     if (Error error = serializeOctopusEffectBasis(value.basis))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
-    write(",\"" "blendMode" "\":");
+    json += ",\"" "blendMode" "\":";
     if (Error error = serializeOctopusBlendMode(value.blendMode))
         return error;
     if (value.overlay.has_value()) {
-        write(",\"" "overlay" "\":");
+        json += ",\"" "overlay" "\":";
         if (Error error = serializeOctopusFill(value.overlay.value()))
             return error;
     }
     if (value.stroke.has_value()) {
-        write(",\"" "stroke" "\":");
+        json += ",\"" "stroke" "\":";
         if (Error error = serializeOctopusStroke(value.stroke.value()))
             return error;
     }
     if (value.shadow.has_value()) {
-        write(",\"" "shadow" "\":");
+        json += ",\"" "shadow" "\":";
         if (Error error = serializeOctopusShadow(value.shadow.value()))
             return error;
     }
     if (value.glow.has_value()) {
-        write(",\"" "glow" "\":");
+        json += ",\"" "glow" "\":";
         if (Error error = serializeOctopusShadow(value.glow.value()))
             return error;
     }
     if (value.blur.has_value()) {
-        write(",\"" "blur" "\":");
+        json += ",\"" "blur" "\":";
         if (Error error = serializeDouble(value.blur.value()))
             return error;
     }
     if (value.filters.has_value()) {
-        write(",\"" "filters" "\":");
+        json += ",\"" "filters" "\":";
         if (Error error = serializeStdVectorOctopusFilter(value.filters.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdArrayDouble6(std::array<double, 6> const &value) {
-    write('[');
+Serializer::Error Serializer::serializeStdArrayDouble6(const std::array<double, 6> &value) {
+    json.push_back('[');
     if (Error error = serializeDouble(value[0]))
         return error;
     for (int i = 1; i < 6; ++i) {
-        write(',');
+        json.push_back(',');
         if (Error error = serializeDouble(value[i]))
             return error;
     }
-    write(']');
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusEffect(std::vector<octopus::Effect> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusEffect(const std::vector<octopus::Effect> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Effect>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Effect const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusEffect(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Effect>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Effect const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusEffect(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusStroke(std::vector<octopus::Stroke> const &value) {
+Serializer::Error Serializer::serializeOctopusLayerChangeValues(const octopus::LayerChange::Values &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Stroke>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Stroke const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusStroke(elem)) return error; }
-    write(']');
-    return Error::OK;
-}
-
-Serializer::Error Serializer::serializeOctopusLayerChangeValues(octopus::LayerChange::Values const &value) {
-    bool prev = false;
-    write('{');
+    json.push_back('{');
     if (value.fill.has_value()) {
-        write("\"" "fill" "\":");
+        json += "\"" "fill" "\":";
         if (Error error = serializeOctopusFill(value.fill.value()))
             return error;
         prev = true;
     }
     if (value.stroke.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "stroke" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "stroke" "\":";
         if (Error error = serializeOctopusVectorStroke(value.stroke.value()))
             return error;
         prev = true;
     }
     if (value.effect.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "effect" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "effect" "\":";
         if (Error error = serializeOctopusEffect(value.effect.value()))
             return error;
         prev = true;
     }
     if (value.filter.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "filter" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "filter" "\":";
         if (Error error = serializeOctopusFilter(value.filter.value()))
             return error;
         prev = true;
     }
     if (value.shape.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "shape" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "shape" "\":";
         if (Error error = serializeOctopusShape(value.shape.value()))
             return error;
         prev = true;
     }
     if (value.text.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "text" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "text" "\":";
         if (Error error = serializeOctopusText(value.text.value()))
             return error;
         prev = true;
     }
     if (value.visible.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "visible" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "visible" "\":";
         if (Error error = serializeBool(value.visible.value()))
             return error;
         prev = true;
     }
     if (value.opacity.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "opacity" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "opacity" "\":";
         if (Error error = serializeDouble(value.opacity.value()))
             return error;
         prev = true;
     }
     if (value.blendMode.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "blendMode" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "blendMode" "\":";
         if (Error error = serializeOctopusBlendMode(value.blendMode.value()))
             return error;
         prev = true;
     }
     if (value.transform.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "transform" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "transform" "\":";
         if (Error error = serializeStdArrayDouble6(value.transform.value()))
             return error;
         prev = true;
     }
     if (value.featureScale.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "featureScale" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "featureScale" "\":";
         if (Error error = serializeDouble(value.featureScale.value()))
             return error;
         prev = true;
     }
     if (value.maskBasis.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "maskBasis" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "maskBasis" "\":";
         if (Error error = serializeOctopusMaskBasis(value.maskBasis.value()))
             return error;
         prev = true;
     }
     if (value.maskChannels.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "maskChannels" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "maskChannels" "\":";
         if (Error error = serializeStdArrayDouble5(value.maskChannels.value()))
             return error;
         prev = true;
     }
     if (value.name.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "name" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "name" "\":";
         if (Error error = serializeStdString(value.name.value()))
             return error;
         prev = true;
     }
     if (value.componentId.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "componentId" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "componentId" "\":";
         if (Error error = serializeStdString(value.componentId.value()))
             return error;
         prev = true;
     }
     if (value.effects.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "effects" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "effects" "\":";
         if (Error error = serializeStdVectorOctopusEffect(value.effects.value()))
             return error;
         prev = true;
     }
     if (value.basis.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "basis" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "basis" "\":";
         if (Error error = serializeOctopusEffectBasis(value.basis.value()))
             return error;
         prev = true;
     }
     if (value.filters.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "filters" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "filters" "\":";
         if (Error error = serializeStdVectorOctopusFilter(value.filters.value()))
             return error;
         prev = true;
     }
     if (value.fills.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "fills" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "fills" "\":";
         if (Error error = serializeStdVectorOctopusFill(value.fills.value()))
             return error;
         prev = true;
     }
     if (value.strokes.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "strokes" "\":");
-        if (Error error = serializeStdVectorOctopusStroke(value.strokes.value()))
+        if (prev) { json.push_back(','); }
+        json += "\"" "strokes" "\":";
+        if (Error error = serializeStdVectorOctopusShapeStroke(value.strokes.value()))
             return error;
         prev = true;
     }
     if (value.fillRule.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "fillRule" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "fillRule" "\":";
         if (Error error = serializeOctopusShapeFillRule(value.fillRule.value()))
             return error;
         prev = true;
     }
     if (value.path.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "path" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "path" "\":";
         if (Error error = serializeOctopusPath(value.path.value()))
             return error;
         prev = true;
     }
     if (value.value.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "value" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "value" "\":";
         if (Error error = serializeStdString(value.value.value()))
             return error;
         prev = true;
     }
     if (value.defaultStyle.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "defaultStyle" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "defaultStyle" "\":";
         if (Error error = serializeOctopusTextStyle(value.defaultStyle.value()))
             return error;
         prev = true;
     }
     if (value.styles.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "styles" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "styles" "\":";
         if (Error error = serializeStdVectorOctopusStyleRange(value.styles.value()))
             return error;
         prev = true;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusLayerChange(octopus::LayerChange const &value) {
-    write("{\"" "subject" "\":");
+Serializer::Error Serializer::serializeOctopusLayerChange(const octopus::LayerChange &value) {
+    json += "{\"" "subject" "\":";
     if (Error error = serializeOctopusLayerChangeSubject(value.subject))
         return error;
-    write(",\"" "op" "\":");
+    json += ",\"" "op" "\":";
     if (Error error = serializeOctopusLayerChangeOp(value.op))
         return error;
     if (value.index.has_value()) {
-        write(",\"" "index" "\":");
+        json += ",\"" "index" "\":";
         if (Error error = serializeInt(value.index.value()))
             return error;
     }
     if (value.filterIndex.has_value()) {
-        write(",\"" "filterIndex" "\":");
+        json += ",\"" "filterIndex" "\":";
         if (Error error = serializeInt(value.filterIndex.value()))
             return error;
     }
-    write(",\"" "values" "\":");
+    json += ",\"" "values" "\":";
     if (Error error = serializeOctopusLayerChangeValues(value.values))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusLayerChange(std::vector<octopus::LayerChange> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusLayerChange(const std::vector<octopus::LayerChange> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::LayerChange>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::LayerChange const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusLayerChange(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::LayerChange>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::LayerChange const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusLayerChange(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusOverride(octopus::Override const &value) {
-    write("{\"" "target" "\":");
+Serializer::Error Serializer::serializeOctopusOverride(const octopus::Override &value) {
+    json += "{\"" "target" "\":";
     if (Error error = serializeStdVectorStdString(value.target))
         return error;
-    write(",\"" "changes" "\":");
+    json += ",\"" "changes" "\":";
     if (Error error = serializeStdVectorOctopusLayerChange(value.changes))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeStdVectorOctopusOverride(std::vector<octopus::Override> const &value) {
+Serializer::Error Serializer::serializeStdVectorOctopusOverride(const std::vector<octopus::Override> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Override>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Override const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusOverride(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Override>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Override const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusOverride(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusLayer(octopus::Layer const &value) {
-    write("{\"" "id" "\":");
+Serializer::Error Serializer::serializeOctopusLayer(const octopus::Layer &value) {
+    json += "{\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write(",\"" "type" "\":");
+    json += ",\"" "type" "\":";
     if (Error error = serializeOctopusLayerType(value.type))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "visible" "\":");
+    json += ",\"" "visible" "\":";
     if (Error error = serializeBool(value.visible))
         return error;
-    write(",\"" "opacity" "\":");
+    json += ",\"" "opacity" "\":";
     if (Error error = serializeDouble(value.opacity))
         return error;
-    write(",\"" "blendMode" "\":");
+    json += ",\"" "blendMode" "\":";
     if (Error error = serializeOctopusBlendMode(value.blendMode))
         return error;
-    write(",\"" "transform" "\":");
+    json += ",\"" "transform" "\":";
     if (Error error = serializeDouble_6(value.transform))
         return error;
     if (value.featureScale.has_value()) {
-        write(",\"" "featureScale" "\":");
+        json += ",\"" "featureScale" "\":";
         if (Error error = serializeDouble(value.featureScale.value()))
             return error;
     }
     if (value.shape.has_value()) {
-        write(",\"" "shape" "\":");
+        json += ",\"" "shape" "\":";
         if (Error error = serializeOctopusShape(value.shape.value()))
             return error;
     }
     if (value.text.has_value()) {
-        write(",\"" "text" "\":");
+        json += ",\"" "text" "\":";
         if (Error error = serializeOctopusText(value.text.value()))
             return error;
     }
     if (value.mask.has_value()) {
-        write(",\"" "mask" "\":");
+        json += ",\"" "mask" "\":";
         if (Error error = serializeOctopusLayer(*value.mask))
             return error;
     }
     if (value.maskBasis.has_value()) {
-        write(",\"" "maskBasis" "\":");
+        json += ",\"" "maskBasis" "\":";
         if (Error error = serializeOctopusMaskBasis(value.maskBasis.value()))
             return error;
     }
     if (value.maskChannels.has_value()) {
-        write(",\"" "maskChannels" "\":");
+        json += ",\"" "maskChannels" "\":";
         if (Error error = serializeStdArrayDouble5(value.maskChannels.value()))
             return error;
     }
     if (value.layers.has_value()) {
-        write(",\"" "layers" "\":");
+        json += ",\"" "layers" "\":";
         if (Error error = serializeStdListOctopusLayer(value.layers.value()))
             return error;
     }
     if (value.componentId.has_value()) {
-        write(",\"" "componentId" "\":");
+        json += ",\"" "componentId" "\":";
         if (Error error = serializeStdString(value.componentId.value()))
             return error;
     }
     if (value.overrides.has_value()) {
-        write(",\"" "overrides" "\":");
+        json += ",\"" "overrides" "\":";
         if (Error error = serializeStdVectorOctopusOverride(value.overrides.value()))
             return error;
     }
-    write(",\"" "effects" "\":");
+    json += ",\"" "effects" "\":";
     if (Error error = serializeStdVectorOctopusEffect(value.effects))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-Serializer::Error Serializer::serializeOctopusOctopus(octopus::Octopus const &value) {
-    write("{\"" "type" "\":");
+Serializer::Error Serializer::serializeOctopusOctopus(const octopus::Octopus &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusOctopusType(value.type))
         return error;
-    write(",\"" "version" "\":");
+    json += ",\"" "version" "\":";
     if (Error error = serializeStdString(value.version))
         return error;
-    write(",\"" "id" "\":");
+    json += ",\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
     if (value.dimensions.has_value()) {
-        write(",\"" "dimensions" "\":");
+        json += ",\"" "dimensions" "\":";
         if (Error error = serializeOctopusDimensions(value.dimensions.value()))
             return error;
     }
     if (value.content.has_value()) {
-        write(",\"" "content" "\":");
+        json += ",\"" "content" "\":";
         if (Error error = serializeOctopusLayer(*value.content))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 

@@ -58,7 +58,7 @@ struct LayerChange {
         nonstd::optional<std::vector<Filter> > filters;
 
         nonstd::optional<std::vector<Fill> > fills;
-        nonstd::optional<std::vector<Stroke> > strokes;
+        nonstd::optional<std::vector<Shape::Stroke> > strokes;
         nonstd::optional<Shape::FillRule> fillRule;
         nonstd::optional<Path> path;
 

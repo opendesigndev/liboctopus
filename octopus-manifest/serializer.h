@@ -27,52 +27,50 @@ public:
         const char *typeString() const;
     };
 
-    static Error serialize(std::string &jsonString, octopus::OctopusManifest const &input);
+    static Error serialize(std::string &jsonString, const octopus::OctopusManifest &input);
 
 protected:
     std::string &json;
 
     ManifestSerializer(std::string &json);
-    void write(char c);
-    void write(const char *str);
     void writeEscaped(char c);
 
-    Error serializeStdString(std::string const &value);
-    Error serializeOctopusOctopusManifestOrigin(octopus::OctopusManifest::Origin const &value);
-    Error serializeOctopusReferenceType(octopus::Reference::Type const &value);
-    Error serializeOctopusReference(octopus::Reference const &value);
-    Error serializeStdVectorOctopusReference(std::vector<octopus::Reference> const &value);
-    Error serializeOctopusPage(octopus::Page const &value);
-    Error serializeStdVectorOctopusPage(std::vector<octopus::Page> const &value);
-    Error serializeOctopusComponentRole(octopus::Component::Role const &value);
-    Error serializeDouble(double const &value);
-    Error serializeOctopusBounds(octopus::Bounds const &value);
-    Error serializeOctopusResourceLocationType(octopus::ResourceLocation::Type const &value);
-    Error serializeOctopusResourceLocation(octopus::ResourceLocation const &value);
-    Error serializeOctopusArtifactType(octopus::Artifact::Type const &value);
-    Error serializeOctopusArtifact(octopus::Artifact const &value);
-    Error serializeStdVectorOctopusArtifact(std::vector<octopus::Artifact> const &value);
-    Error serializeOctopusAssetFont(octopus::AssetFont const &value);
-    Error serializeStdVectorOctopusAssetFont(std::vector<octopus::AssetFont> const &value);
-    Error serializeOctopusAssetImage(octopus::AssetImage const &value);
-    Error serializeStdVectorOctopusAssetImage(std::vector<octopus::AssetImage> const &value);
-    Error serializeOctopusAssets(octopus::Assets const &value);
-    Error serializeOctopusComponentSet(octopus::ComponentSet const &value);
-    Error serializeStdMapStdStringStdString(std::map<std::string, std::string> const &value);
-    Error serializeOctopusComponentVariantMeta(octopus::Component::VariantMeta const &value);
-    Error serializeOctopusStatusValue(octopus::Status::Value const &value);
-    Error serializeInt(int const &value);
-    Error serializeStdVectorStdString(std::vector<std::string> const &value);
-    Error serializeOctopusStatusError(octopus::Status::Error const &value);
-    Error serializeOctopusStatus(octopus::Status const &value);
-    Error serializeOctopusComponent(octopus::Component const &value);
-    Error serializeStdVectorOctopusComponent(std::vector<octopus::Component> const &value);
-    Error serializeOctopusLibrary(octopus::Library const &value);
-    Error serializeStdVectorOctopusLibrary(std::vector<octopus::Library> const &value);
-    Error serializeOctopusChunkType(octopus::Chunk::Type const &value);
-    Error serializeOctopusChunk(octopus::Chunk const &value);
-    Error serializeStdVectorOctopusChunk(std::vector<octopus::Chunk> const &value);
-    Error serializeOctopusOctopusManifest(octopus::OctopusManifest const &value);
+    Error serializeStdString(const std::string &value);
+    Error serializeOctopusOctopusManifestOrigin(const octopus::OctopusManifest::Origin &value);
+    Error serializeOctopusReferenceType(const octopus::Reference::Type &value);
+    Error serializeOctopusReference(const octopus::Reference &value);
+    Error serializeStdVectorOctopusReference(const std::vector<octopus::Reference> &value);
+    Error serializeOctopusPage(const octopus::Page &value);
+    Error serializeStdVectorOctopusPage(const std::vector<octopus::Page> &value);
+    Error serializeOctopusComponentRole(const octopus::Component::Role &value);
+    Error serializeDouble(const double &value);
+    Error serializeOctopusBounds(const octopus::Bounds &value);
+    Error serializeOctopusResourceLocationType(const octopus::ResourceLocation::Type &value);
+    Error serializeOctopusResourceLocation(const octopus::ResourceLocation &value);
+    Error serializeOctopusArtifactType(const octopus::Artifact::Type &value);
+    Error serializeOctopusArtifact(const octopus::Artifact &value);
+    Error serializeStdVectorOctopusArtifact(const std::vector<octopus::Artifact> &value);
+    Error serializeOctopusAssetFont(const octopus::AssetFont &value);
+    Error serializeStdVectorOctopusAssetFont(const std::vector<octopus::AssetFont> &value);
+    Error serializeOctopusAssetImage(const octopus::AssetImage &value);
+    Error serializeStdVectorOctopusAssetImage(const std::vector<octopus::AssetImage> &value);
+    Error serializeOctopusAssets(const octopus::Assets &value);
+    Error serializeOctopusComponentSet(const octopus::ComponentSet &value);
+    Error serializeStdMapStdStringStdString(const std::map<std::string, std::string> &value);
+    Error serializeOctopusComponentVariantMeta(const octopus::Component::VariantMeta &value);
+    Error serializeOctopusStatusValue(const octopus::Status::Value &value);
+    Error serializeInt(const int &value);
+    Error serializeStdVectorStdString(const std::vector<std::string> &value);
+    Error serializeOctopusStatusError(const ::octopus::Status::Error &value);
+    Error serializeOctopusStatus(const octopus::Status &value);
+    Error serializeOctopusComponent(const octopus::Component &value);
+    Error serializeStdVectorOctopusComponent(const std::vector<octopus::Component> &value);
+    Error serializeOctopusLibrary(const octopus::Library &value);
+    Error serializeStdVectorOctopusLibrary(const std::vector<octopus::Library> &value);
+    Error serializeOctopusChunkType(const octopus::Chunk::Type &value);
+    Error serializeOctopusChunk(const octopus::Chunk &value);
+    Error serializeStdVectorOctopusChunk(const std::vector<octopus::Chunk> &value);
+    Error serializeOctopusOctopusManifest(const octopus::OctopusManifest &value);
 
 private:
     template <typename U, typename T>
