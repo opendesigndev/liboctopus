@@ -18,8 +18,10 @@ public:
             UNEXPECTED_END_OF_FILE,
             TYPE_MISMATCH,
             ARRAY_SIZE_MISMATCH,
-            UNKNOWN_KEY,
             UNKNOWN_ENUM_VALUE,
+            UNKNOWN_KEY,
+            MISSING_KEY,
+            REPEATED_KEY,
             VALUE_OUT_OF_RANGE,
             STRING_EXPECTED,
             UTF16_ENCODING_ERROR
@@ -38,6 +40,7 @@ public:
 
 protected:
     const char *cur;
+    std::string buffer;
 
     explicit Parser(const char *str);
     void skipWhitespace();
@@ -153,8 +156,7 @@ protected:
     Error::Type parseOctopusStyleRange(octopus::StyleRange &value);
     Error::Type parseStdVectorOctopusStyleRange(std::vector<octopus::StyleRange> &value);
     Error::Type parseNonstdOptionalStdVectorOctopusStyleRange(nonstd::optional<std::vector<octopus::StyleRange> > &value);
-    Error::Type parseStdVectorOctopusStroke(std::vector<octopus::Stroke> &value);
-    Error::Type parseNonstdOptionalStdVectorOctopusStroke(nonstd::optional<std::vector<octopus::Stroke> > &value);
+    Error::Type parseNonstdOptionalStdVectorOctopusShapeStroke(nonstd::optional<std::vector<octopus::Shape::Stroke> > &value);
     Error::Type parseOctopusTextBaselinePolicy(octopus::Text::BaselinePolicy &value);
     Error::Type parseOctopusTextHorizontalAlign(octopus::Text::HorizontalAlign &value);
     Error::Type parseOctopusTextFrameMode(octopus::TextFrame::Mode &value);

@@ -35,648 +35,640 @@ ManifestSerializer::ManifestSerializer(std::string &json) : json(json) {
     json.clear();
 }
 
-void ManifestSerializer::write(char c) {
-    json.push_back(c);
-}
-
-void ManifestSerializer::write(const char *str) {
-    json += str;
-}
-
 void ManifestSerializer::writeEscaped(char c) {
     switch (c) {
-        case '\x00': write("\\u0000"); break;
-        case '\x01': write("\\u0001"); break;
-        case '\x02': write("\\u0002"); break;
-        case '\x03': write("\\u0003"); break;
-        case '\x04': write("\\u0004"); break;
-        case '\x05': write("\\u0005"); break;
-        case '\x06': write("\\u0006"); break;
-        case '\x07': write("\\u0007"); break;
-        case '\b': write("\\b"); break;
-        case '\t': write("\\t"); break;
-        case '\n': write("\\n"); break;
-        case '\x0b': write("\\u000b"); break;
-        case '\f': write("\\f"); break;
-        case '\r': write("\\r"); break;
-        case '\x0e': write("\\u000e"); break;
-        case '\x0f': write("\\u000f"); break;
-        case '\x10': write("\\u0010"); break;
-        case '\x11': write("\\u0011"); break;
-        case '\x12': write("\\u0012"); break;
-        case '\x13': write("\\u0013"); break;
-        case '\x14': write("\\u0014"); break;
-        case '\x15': write("\\u0015"); break;
-        case '\x16': write("\\u0016"); break;
-        case '\x17': write("\\u0017"); break;
-        case '\x18': write("\\u0018"); break;
-        case '\x19': write("\\u0019"); break;
-        case '\x1a': write("\\u001a"); break;
-        case '\x1b': write("\\u001b"); break;
-        case '\x1c': write("\\u001c"); break;
-        case '\x1d': write("\\u001d"); break;
-        case '\x1e': write("\\u001e"); break;
-        case '\x1f': write("\\u001f"); break;
-        case '"': write("\\\""); break;
-        case '\\': write("\\\\"); break;
+        case '\x00': json += "\\u0000"; break;
+        case '\x01': json += "\\u0001"; break;
+        case '\x02': json += "\\u0002"; break;
+        case '\x03': json += "\\u0003"; break;
+        case '\x04': json += "\\u0004"; break;
+        case '\x05': json += "\\u0005"; break;
+        case '\x06': json += "\\u0006"; break;
+        case '\x07': json += "\\u0007"; break;
+        case '\b': json += "\\b"; break;
+        case '\t': json += "\\t"; break;
+        case '\n': json += "\\n"; break;
+        case '\x0b': json += "\\u000b"; break;
+        case '\f': json += "\\f"; break;
+        case '\r': json += "\\r"; break;
+        case '\x0e': json += "\\u000e"; break;
+        case '\x0f': json += "\\u000f"; break;
+        case '\x10': json += "\\u0010"; break;
+        case '\x11': json += "\\u0011"; break;
+        case '\x12': json += "\\u0012"; break;
+        case '\x13': json += "\\u0013"; break;
+        case '\x14': json += "\\u0014"; break;
+        case '\x15': json += "\\u0015"; break;
+        case '\x16': json += "\\u0016"; break;
+        case '\x17': json += "\\u0017"; break;
+        case '\x18': json += "\\u0018"; break;
+        case '\x19': json += "\\u0019"; break;
+        case '\x1a': json += "\\u001a"; break;
+        case '\x1b': json += "\\u001b"; break;
+        case '\x1c': json += "\\u001c"; break;
+        case '\x1d': json += "\\u001d"; break;
+        case '\x1e': json += "\\u001e"; break;
+        case '\x1f': json += "\\u001f"; break;
+        case '"': json += "\\\""; break;
+        case '\\': json += "\\\\"; break;
         default:
-            write(c);
+            json.push_back(c);
     }
 }
 
 template <typename U, typename T>
 void ManifestSerializer::writeSigned(T value) {
-    if (value < 0)
-        write('-'), value = -value;
+    if (value < 0) {
+        json.push_back('-');
+        value = -value;
+    }
     U unsignedValue = static_cast<U>(value);
     char buffer[4*(sizeof(U)+1)], *cur = &(buffer[4*(sizeof(U)+1)-1] = '\0');
     do *--cur = '0'+unsignedValue%10; while (unsignedValue /= 10);
-    write(cur);
+    json += cur;
 }
 
-ManifestSerializer::Error ManifestSerializer::serialize(std::string &jsonString, octopus::OctopusManifest const &input) {
+ManifestSerializer::Error ManifestSerializer::serialize(std::string &jsonString, const octopus::OctopusManifest &input) {
     return ManifestSerializer(jsonString).serializeOctopusOctopusManifest(input);
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdString(std::string const &value) {
-    write('"');
+ManifestSerializer::Error ManifestSerializer::serializeStdString(const std::string &value) {
+    json.push_back('"');
     for (std::string::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { char c = *i; writeEscaped(c); }
-    write('"');
+    json.push_back('"');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusOctopusManifestOrigin(octopus::OctopusManifest::Origin const &value) {
-    write("{\"" "name" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusOctopusManifestOrigin(const octopus::OctopusManifest::Origin &value) {
+    json += "{\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "version" "\":");
+    json += ",\"" "version" "\":";
     if (Error error = serializeStdString(value.version))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusReferenceType(octopus::Reference::Type const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusReferenceType(const octopus::Reference::Type &value) {
     switch (value) {
-        case octopus::Reference::Type::CHUNK: write("\"CHUNK\""); break;
-        case octopus::Reference::Type::COMPONENT: write("\"COMPONENT\""); break;
-        case octopus::Reference::Type::ARTBOARD: write("\"ARTBOARD\""); break;
+        case octopus::Reference::Type::CHUNK: json += "\"CHUNK\""; break;
+        case octopus::Reference::Type::COMPONENT: json += "\"COMPONENT\""; break;
+        case octopus::Reference::Type::ARTBOARD: json += "\"ARTBOARD\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusReference(octopus::Reference const &value) {
-    write("{\"" "type" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusReference(const octopus::Reference &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusReferenceType(value.type))
         return error;
-    write(",\"" "id" "\":");
+    json += ",\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusReference(std::vector<octopus::Reference> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusReference(const std::vector<octopus::Reference> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Reference>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Reference const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusReference(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Reference>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Reference const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusReference(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusPage(octopus::Page const &value) {
-    write("{\"" "id" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusPage(const octopus::Page &value) {
+    json += "{\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "children" "\":");
+    json += ",\"" "children" "\":";
     if (Error error = serializeStdVectorOctopusReference(value.children))
         return error;
     if (value.description.has_value()) {
-        write(",\"" "description" "\":");
+        json += ",\"" "description" "\":";
         if (Error error = serializeStdString(value.description.value()))
             return error;
     }
     if (value.hash.has_value()) {
-        write(",\"" "hash" "\":");
+        json += ",\"" "hash" "\":";
         if (Error error = serializeStdString(value.hash.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusPage(std::vector<octopus::Page> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusPage(const std::vector<octopus::Page> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Page>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Page const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusPage(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Page>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Page const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusPage(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentRole(octopus::Component::Role const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentRole(const octopus::Component::Role &value) {
     switch (value) {
-        case octopus::Component::Role::COMPONENT: write("\"COMPONENT\""); break;
-        case octopus::Component::Role::ARTBOARD: write("\"ARTBOARD\""); break;
-        case octopus::Component::Role::PASTEBOARD: write("\"PASTEBOARD\""); break;
-        case octopus::Component::Role::PARTIAL: write("\"PARTIAL\""); break;
+        case octopus::Component::Role::COMPONENT: json += "\"COMPONENT\""; break;
+        case octopus::Component::Role::ARTBOARD: json += "\"ARTBOARD\""; break;
+        case octopus::Component::Role::PASTEBOARD: json += "\"PASTEBOARD\""; break;
+        case octopus::Component::Role::PARTIAL: json += "\"PARTIAL\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeDouble(double const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeDouble(const double &value) {
     char buffer[64];
     JSON_CPP_SERIALIZE_DOUBLE(buffer, value);
     switch (buffer[1]) {
         case 'i':
-            write("-1e999");
+            json += "-1e999";
             break;
         case 'n':
             if (buffer[0] == 'i') {
-                write("1e999");
+            json += "1e999";
                 break;
             }
             // fallthrough
         case 'a':
-            write("\"NaN\"");
+            json += "\"NaN\"";
             break;
         default:
-            write(buffer);
+            json += buffer;
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusBounds(octopus::Bounds const &value) {
-    write("{\"" "x" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusBounds(const octopus::Bounds &value) {
+    json += "{\"" "x" "\":";
     if (Error error = serializeDouble(value.x))
         return error;
-    write(",\"" "y" "\":");
+    json += ",\"" "y" "\":";
     if (Error error = serializeDouble(value.y))
         return error;
-    write(",\"" "width" "\":");
+    json += ",\"" "width" "\":";
     if (Error error = serializeDouble(value.width))
         return error;
-    write(",\"" "height" "\":");
+    json += ",\"" "height" "\":";
     if (Error error = serializeDouble(value.height))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusResourceLocationType(octopus::ResourceLocation::Type const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusResourceLocationType(const octopus::ResourceLocation::Type &value) {
     switch (value) {
-        case octopus::ResourceLocation::Type::RELATIVE: write("\"RELATIVE\""); break;
-        case octopus::ResourceLocation::Type::EXTERNAL: write("\"EXTERNAL\""); break;
+        case octopus::ResourceLocation::Type::RELATIVE: json += "\"RELATIVE\""; break;
+        case octopus::ResourceLocation::Type::EXTERNAL: json += "\"EXTERNAL\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusResourceLocation(octopus::ResourceLocation const &value) {
-    write("{\"" "type" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusResourceLocation(const octopus::ResourceLocation &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusResourceLocationType(value.type))
         return error;
     if (value.path.has_value()) {
-        write(",\"" "path" "\":");
+        json += ",\"" "path" "\":";
         if (Error error = serializeStdString(value.path.value()))
             return error;
     }
     if (value.url.has_value()) {
-        write(",\"" "url" "\":");
+        json += ",\"" "url" "\":";
         if (Error error = serializeStdString(value.url.value()))
             return error;
     }
     if (value.versionHash.has_value()) {
-        write(",\"" "versionHash" "\":");
+        json += ",\"" "versionHash" "\":";
         if (Error error = serializeStdString(value.versionHash.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusArtifactType(octopus::Artifact::Type const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusArtifactType(const octopus::Artifact::Type &value) {
     switch (value) {
-        case octopus::Artifact::Type::OCTOPUS: write("\"OCTOPUS\""); break;
-        case octopus::Artifact::Type::OCTOPUS_EXPANDED: write("\"OCTOPUS_EXPANDED\""); break;
-        case octopus::Artifact::Type::SOURCE: write("\"SOURCE\""); break;
+        case octopus::Artifact::Type::OCTOPUS: json += "\"OCTOPUS\""; break;
+        case octopus::Artifact::Type::OCTOPUS_EXPANDED: json += "\"OCTOPUS_EXPANDED\""; break;
+        case octopus::Artifact::Type::SOURCE: json += "\"SOURCE\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusArtifact(octopus::Artifact const &value) {
-    write("{\"" "type" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusArtifact(const octopus::Artifact &value) {
+    json += "{\"" "type" "\":";
     if (Error error = serializeOctopusArtifactType(value.type))
         return error;
-    write(",\"" "location" "\":");
+    json += ",\"" "location" "\":";
     if (Error error = serializeOctopusResourceLocation(value.location))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusArtifact(std::vector<octopus::Artifact> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusArtifact(const std::vector<octopus::Artifact> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Artifact>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Artifact const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusArtifact(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Artifact>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Artifact const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusArtifact(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusAssetFont(octopus::AssetFont const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusAssetFont(const octopus::AssetFont &value) {
     bool prev = false;
-    write('{');
+    json.push_back('{');
     if (value.location.has_value()) {
-        write("\"" "location" "\":");
+        json += "\"" "location" "\":";
         if (Error error = serializeOctopusResourceLocation(value.location.value()))
             return error;
         prev = true;
     }
     if (value.fontType.has_value()) {
-        if (prev)
-            write(',');
-        write("\"" "fontType" "\":");
+        if (prev) { json.push_back(','); }
+        json += "\"" "fontType" "\":";
         if (Error error = serializeStdString(value.fontType.value()))
             return error;
         prev = true;
     }
-    if (prev)
-        write(',');
-    write("\"" "refId" "\":");
+    if (prev) { json.push_back(','); }
+    json += "\"" "refId" "\":";
     if (Error error = serializeStdString(value.refId))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusAssetFont(std::vector<octopus::AssetFont> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusAssetFont(const std::vector<octopus::AssetFont> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::AssetFont>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::AssetFont const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusAssetFont(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::AssetFont>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::AssetFont const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusAssetFont(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusAssetImage(octopus::AssetImage const &value) {
-    write("{\"" "location" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusAssetImage(const octopus::AssetImage &value) {
+    json += "{\"" "location" "\":";
     if (Error error = serializeOctopusResourceLocation(value.location))
         return error;
-    write(",\"" "refId" "\":");
+    json += ",\"" "refId" "\":";
     if (Error error = serializeStdString(value.refId))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusAssetImage(std::vector<octopus::AssetImage> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusAssetImage(const std::vector<octopus::AssetImage> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::AssetImage>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::AssetImage const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusAssetImage(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::AssetImage>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::AssetImage const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusAssetImage(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusAssets(octopus::Assets const &value) {
-    write("{\"" "fonts" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusAssets(const octopus::Assets &value) {
+    json += "{\"" "fonts" "\":";
     if (Error error = serializeStdVectorOctopusAssetFont(value.fonts))
         return error;
-    write(",\"" "images" "\":");
+    json += ",\"" "images" "\":";
     if (Error error = serializeStdVectorOctopusAssetImage(value.images))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentSet(octopus::ComponentSet const &value) {
-    write("{\"" "id" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentSet(const octopus::ComponentSet &value) {
+    json += "{\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
     if (value.description.has_value()) {
-        write(",\"" "description" "\":");
+        json += ",\"" "description" "\":";
         if (Error error = serializeStdString(value.description.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdMapStdStringStdString(std::map<std::string, std::string> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdMapStdStringStdString(const std::map<std::string, std::string> &value) {
     bool prev = false;
-    write('{');
-    for (std::map<std::string, std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &key = i->first; std::string const &elem = i->second; if (prev) write(','); prev = true; if (Error error = serializeStdString(key)) return error; write(':'); if (Error error = serializeStdString(elem)) return error; }
-    write('}');
+    json.push_back('{');
+    for (std::map<std::string, std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &key = i->first; std::string const &elem = i->second; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeStdString(key)) return error; json.push_back(':'); if (Error error = serializeStdString(elem)) return error; }
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentVariantMeta(octopus::Component::VariantMeta const &value) {
-    write("{\"" "of" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusComponentVariantMeta(const octopus::Component::VariantMeta &value) {
+    json += "{\"" "of" "\":";
     if (Error error = serializeOctopusComponentSet(value.of))
         return error;
-    write(",\"" "properties" "\":");
+    json += ",\"" "properties" "\":";
     if (Error error = serializeStdMapStdStringStdString(value.properties))
         return error;
     if (value.description.has_value()) {
-        write(",\"" "description" "\":");
+        json += ",\"" "description" "\":";
         if (Error error = serializeStdString(value.description.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusStatusValue(octopus::Status::Value const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusStatusValue(const octopus::Status::Value &value) {
     switch (value) {
-        case octopus::Status::READY: write("\"READY\""); break;
-        case octopus::Status::PENDING: write("\"PENDING\""); break;
-        case octopus::Status::PROCESSING: write("\"PROCESSING\""); break;
-        case octopus::Status::FAILED: write("\"FAILED\""); break;
+        case octopus::Status::READY: json += "\"READY\""; break;
+        case octopus::Status::PENDING: json += "\"PENDING\""; break;
+        case octopus::Status::PROCESSING: json += "\"PROCESSING\""; break;
+        case octopus::Status::FAILED: json += "\"FAILED\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeInt(int const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeInt(const int &value) {
     writeSigned<unsigned>(value);
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorStdString(std::vector<std::string> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorStdString(const std::vector<std::string> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeStdString(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<std::string>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { std::string const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeStdString(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusStatusError(octopus::Status::Error const &value) {
-    write("{\"" "code" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusStatusError(const ::octopus::Status::Error &value) {
+    json += "{\"" "code" "\":";
     if (Error error = serializeInt(value.code))
         return error;
-    write(",\"" "message" "\":");
+    json += ",\"" "message" "\":";
     if (Error error = serializeStdString(value.message))
         return error;
-    write(",\"" "stacktrace" "\":");
+    json += ",\"" "stacktrace" "\":";
     if (Error error = serializeStdVectorStdString(value.stacktrace))
         return error;
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusStatus(octopus::Status const &value) {
-    write("{\"" "value" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusStatus(const octopus::Status &value) {
+    json += "{\"" "value" "\":";
     if (Error error = serializeOctopusStatusValue(value.value))
         return error;
     if (value.error.has_value()) {
-        write(",\"" "error" "\":");
+        json += ",\"" "error" "\":";
         if (Error error = serializeOctopusStatusError(value.error.value()))
             return error;
     }
     if (value.time.has_value()) {
-        write(",\"" "time" "\":");
+        json += ",\"" "time" "\":";
         if (Error error = serializeDouble(value.time.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusComponent(octopus::Component const &value) {
-    write("{\"" "id" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusComponent(const octopus::Component &value) {
+    json += "{\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "role" "\":");
+    json += ",\"" "role" "\":";
     if (Error error = serializeOctopusComponentRole(value.role))
         return error;
-    write(",\"" "bounds" "\":");
+    json += ",\"" "bounds" "\":";
     if (Error error = serializeOctopusBounds(value.bounds))
         return error;
-    write(",\"" "dependencies" "\":");
+    json += ",\"" "dependencies" "\":";
     if (Error error = serializeStdVectorOctopusReference(value.dependencies))
         return error;
-    write(",\"" "location" "\":");
+    json += ",\"" "location" "\":";
     if (Error error = serializeOctopusResourceLocation(value.location))
         return error;
-    write(",\"" "artifacts" "\":");
+    json += ",\"" "artifacts" "\":";
     if (Error error = serializeStdVectorOctopusArtifact(value.artifacts))
         return error;
     if (value.parentId.has_value()) {
-        write(",\"" "parentId" "\":");
+        json += ",\"" "parentId" "\":";
         if (Error error = serializeOctopusReference(value.parentId.value()))
             return error;
     }
     if (value.preview.has_value()) {
-        write(",\"" "preview" "\":");
+        json += ",\"" "preview" "\":";
         if (Error error = serializeOctopusResourceLocation(value.preview.value()))
             return error;
     }
     if (value.assets.has_value()) {
-        write(",\"" "assets" "\":");
+        json += ",\"" "assets" "\":";
         if (Error error = serializeOctopusAssets(value.assets.value()))
             return error;
     }
     if (value.variant.has_value()) {
-        write(",\"" "variant" "\":");
+        json += ",\"" "variant" "\":";
         if (Error error = serializeOctopusComponentVariantMeta(value.variant.value()))
             return error;
     }
     if (value.description.has_value()) {
-        write(",\"" "description" "\":");
+        json += ",\"" "description" "\":";
         if (Error error = serializeStdString(value.description.value()))
             return error;
     }
     if (value.hash.has_value()) {
-        write(",\"" "hash" "\":");
+        json += ",\"" "hash" "\":";
         if (Error error = serializeStdString(value.hash.value()))
             return error;
     }
     if (value.status.has_value()) {
-        write(",\"" "status" "\":");
+        json += ",\"" "status" "\":";
         if (Error error = serializeOctopusStatus(value.status.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusComponent(std::vector<octopus::Component> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusComponent(const std::vector<octopus::Component> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Component>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Component const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusComponent(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Component>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Component const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusComponent(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusLibrary(octopus::Library const &value) {
-    write("{\"" "id" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusLibrary(const octopus::Library &value) {
+    json += "{\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "children" "\":");
+    json += ",\"" "children" "\":";
     if (Error error = serializeStdVectorOctopusReference(value.children))
         return error;
     if (value.location.has_value()) {
-        write(",\"" "location" "\":");
+        json += ",\"" "location" "\":";
         if (Error error = serializeOctopusResourceLocation(value.location.value()))
             return error;
     }
     if (value.preview.has_value()) {
-        write(",\"" "preview" "\":");
+        json += ",\"" "preview" "\":";
         if (Error error = serializeOctopusResourceLocation(value.preview.value()))
             return error;
     }
     if (value.assets.has_value()) {
-        write(",\"" "assets" "\":");
+        json += ",\"" "assets" "\":";
         if (Error error = serializeOctopusAssets(value.assets.value()))
             return error;
     }
     if (value.description.has_value()) {
-        write(",\"" "description" "\":");
+        json += ",\"" "description" "\":";
         if (Error error = serializeStdString(value.description.value()))
             return error;
     }
     if (value.hash.has_value()) {
-        write(",\"" "hash" "\":");
+        json += ",\"" "hash" "\":";
         if (Error error = serializeStdString(value.hash.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusLibrary(std::vector<octopus::Library> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusLibrary(const std::vector<octopus::Library> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Library>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Library const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusLibrary(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Library>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Library const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusLibrary(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusChunkType(octopus::Chunk::Type const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeOctopusChunkType(const octopus::Chunk::Type &value) {
     switch (value) {
-        case octopus::Chunk::Type::STYLE_LAYER: write("\"STYLE_LAYER\""); break;
-        case octopus::Chunk::Type::STYLE_FILL: write("\"STYLE_FILL\""); break;
-        case octopus::Chunk::Type::STYLE_TEXT: write("\"STYLE_TEXT\""); break;
-        case octopus::Chunk::Type::STYLE_EFFECT: write("\"STYLE_EFFECT\""); break;
-        case octopus::Chunk::Type::STYLE_GRID: write("\"STYLE_GRID\""); break;
+        case octopus::Chunk::Type::STYLE_LAYER: json += "\"STYLE_LAYER\""; break;
+        case octopus::Chunk::Type::STYLE_FILL: json += "\"STYLE_FILL\""; break;
+        case octopus::Chunk::Type::STYLE_TEXT: json += "\"STYLE_TEXT\""; break;
+        case octopus::Chunk::Type::STYLE_EFFECT: json += "\"STYLE_EFFECT\""; break;
+        case octopus::Chunk::Type::STYLE_GRID: json += "\"STYLE_GRID\""; break;
         default:
             return Error(Error::UNKNOWN_ENUM_VALUE, &value);
     }
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusChunk(octopus::Chunk const &value) {
-    write("{\"" "id" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusChunk(const octopus::Chunk &value) {
+    json += "{\"" "id" "\":";
     if (Error error = serializeStdString(value.id))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "type" "\":");
+    json += ",\"" "type" "\":";
     if (Error error = serializeOctopusChunkType(value.type))
         return error;
-    write(",\"" "location" "\":");
+    json += ",\"" "location" "\":";
     if (Error error = serializeOctopusResourceLocation(value.location))
         return error;
-    write(",\"" "artifacts" "\":");
+    json += ",\"" "artifacts" "\":";
     if (Error error = serializeStdVectorOctopusArtifact(value.artifacts))
         return error;
     if (value.preview.has_value()) {
-        write(",\"" "preview" "\":");
+        json += ",\"" "preview" "\":";
         if (Error error = serializeOctopusResourceLocation(value.preview.value()))
             return error;
     }
     if (value.assets.has_value()) {
-        write(",\"" "assets" "\":");
+        json += ",\"" "assets" "\":";
         if (Error error = serializeOctopusAssets(value.assets.value()))
             return error;
     }
     if (value.description.has_value()) {
-        write(",\"" "description" "\":");
+        json += ",\"" "description" "\":";
         if (Error error = serializeStdString(value.description.value()))
             return error;
     }
     if (value.hash.has_value()) {
-        write(",\"" "hash" "\":");
+        json += ",\"" "hash" "\":";
         if (Error error = serializeStdString(value.hash.value()))
             return error;
     }
     if (value.status.has_value()) {
-        write(",\"" "status" "\":");
+        json += ",\"" "status" "\":";
         if (Error error = serializeOctopusStatus(value.status.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusChunk(std::vector<octopus::Chunk> const &value) {
+ManifestSerializer::Error ManifestSerializer::serializeStdVectorOctopusChunk(const std::vector<octopus::Chunk> &value) {
     bool prev = false;
-    write('[');
-    for (std::vector<octopus::Chunk>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Chunk const &elem = *i; if (prev) write(','); prev = true; if (Error error = serializeOctopusChunk(elem)) return error; }
-    write(']');
+    json.push_back('[');
+    for (std::vector<octopus::Chunk>::const_iterator i = value.begin(), end = value.end(); i != end; ++i) { octopus::Chunk const &elem = *i; if (prev) { json.push_back(','); } prev = true; if (Error error = serializeOctopusChunk(elem)) return error; }
+    json.push_back(']');
     return Error::OK;
 }
 
-ManifestSerializer::Error ManifestSerializer::serializeOctopusOctopusManifest(octopus::OctopusManifest const &value) {
-    write("{\"" "version" "\":");
+ManifestSerializer::Error ManifestSerializer::serializeOctopusOctopusManifest(const octopus::OctopusManifest &value) {
+    json += "{\"" "version" "\":";
     if (Error error = serializeStdString(value.version))
         return error;
-    write(",\"" "origin" "\":");
+    json += ",\"" "origin" "\":";
     if (Error error = serializeOctopusOctopusManifestOrigin(value.origin))
         return error;
-    write(",\"" "name" "\":");
+    json += ",\"" "name" "\":";
     if (Error error = serializeStdString(value.name))
         return error;
-    write(",\"" "pages" "\":");
+    json += ",\"" "pages" "\":";
     if (Error error = serializeStdVectorOctopusPage(value.pages))
         return error;
-    write(",\"" "components" "\":");
+    json += ",\"" "components" "\":";
     if (Error error = serializeStdVectorOctopusComponent(value.components))
         return error;
-    write(",\"" "libraries" "\":");
+    json += ",\"" "libraries" "\":";
     if (Error error = serializeStdVectorOctopusLibrary(value.libraries))
         return error;
-    write(",\"" "chunks" "\":");
+    json += ",\"" "chunks" "\":";
     if (Error error = serializeStdVectorOctopusChunk(value.chunks))
         return error;
-    write(",\"" "resourcesBase" "\":");
+    json += ",\"" "resourcesBase" "\":";
     if (Error error = serializeStdString(value.resourcesBase))
         return error;
     if (value.interactions.has_value()) {
-        write(",\"" "interactions" "\":");
+        json += ",\"" "interactions" "\":";
         if (Error error = serializeOctopusResourceLocation(value.interactions.value()))
             return error;
     }
     if (value.hash.has_value()) {
-        write(",\"" "hash" "\":");
+        json += ",\"" "hash" "\":";
         if (Error error = serializeStdString(value.hash.value()))
             return error;
     }
-    write('}');
+    json.push_back('}');
     return Error::OK;
 }
 

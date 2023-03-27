@@ -31,10 +31,14 @@ const char *Parser::Error::typeString() const {
             return "TYPE_MISMATCH";
         case Error::ARRAY_SIZE_MISMATCH:
             return "ARRAY_SIZE_MISMATCH";
-        case Error::UNKNOWN_KEY:
-            return "UNKNOWN_KEY";
         case Error::UNKNOWN_ENUM_VALUE:
             return "UNKNOWN_ENUM_VALUE";
+        case Error::UNKNOWN_KEY:
+            return "UNKNOWN_KEY";
+        case Error::MISSING_KEY:
+            return "MISSING_KEY";
+        case Error::REPEATED_KEY:
+            return "REPEATED_KEY";
         case Error::VALUE_OUT_OF_RANGE:
             return "VALUE_OUT_OF_RANGE";
         case Error::STRING_EXPECTED:
@@ -235,10 +239,10 @@ Parser::Error::Type Parser::parseStdString(std::string &value) {
     value.clear();
     while (*cur != '"') {
         if (*cur == '\\') {
-            char buffer[8];
-            if (Error error = unescape(buffer))
+            char utfBuffer[8];
+            if (Error error = unescape(utfBuffer))
                 return error;
-            value += buffer;
+            value += utfBuffer;
             continue;
         }
         if (!*cur)
@@ -251,33 +255,32 @@ Parser::Error::Type Parser::parseStdString(std::string &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 2) {
-        switch (str[2]) {
+    if (buffer.size() > 2) {
+        switch (buffer[2]) {
             case 'B':
-                if (str == "SUBTRACT") {
+                if (buffer == "SUBTRACT") {
                     value = octopus::BlendMode::SUBTRACT;
                     return Error::OK; 
                 }
                 break;
             case 'C':
-                if (str == "EXCLUSION") {
+                if (buffer == "EXCLUSION") {
                     value = octopus::BlendMode::EXCLUSION;
                     return Error::OK; 
                 }
                 break;
             case 'E':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 3:
-                        if (str == "HUE") {
+                        if (buffer == "HUE") {
                             value = octopus::BlendMode::HUE;
                             return Error::OK; 
                         }
                         break;
                     case 7:
-                        if (str == "OVERLAY") {
+                        if (buffer == "OVERLAY") {
                             value = octopus::BlendMode::OVERLAY;
                             return Error::OK; 
                         }
@@ -285,15 +288,15 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                 }
                 break;
             case 'F':
-                switch (str[0]) {
+                switch (buffer[0]) {
                     case 'D':
-                        if (str == "DIFFERENCE") {
+                        if (buffer == "DIFFERENCE") {
                             value = octopus::BlendMode::DIFFERENCE;
                             return Error::OK; 
                         }
                         break;
                     case 'S':
-                        if (str == "SOFT_LIGHT") {
+                        if (buffer == "SOFT_LIGHT") {
                             value = octopus::BlendMode::SOFT_LIGHT;
                             return Error::OK; 
                         }
@@ -301,15 +304,15 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                 }
                 break;
             case 'G':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 7:
-                        if (str == "LIGHTEN") {
+                        if (buffer == "LIGHTEN") {
                             value = octopus::BlendMode::LIGHTEN;
                             return Error::OK; 
                         }
                         break;
                     case 13:
-                        if (str == "LIGHTER_COLOR") {
+                        if (buffer == "LIGHTER_COLOR") {
                             value = octopus::BlendMode::LIGHTER_COLOR;
                             return Error::OK; 
                         }
@@ -317,27 +320,27 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                 }
                 break;
             case 'L':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 5:
-                        if (str == "COLOR") {
+                        if (buffer == "COLOR") {
                             value = octopus::BlendMode::COLOR;
                             return Error::OK; 
                         }
                         break;
                     case 8:
-                        if (str == "MULTIPLY") {
+                        if (buffer == "MULTIPLY") {
                             value = octopus::BlendMode::MULTIPLY;
                             return Error::OK; 
                         }
                         break;
                     case 10:
-                        if (str == "COLOR_BURN") {
+                        if (buffer == "COLOR_BURN") {
                             value = octopus::BlendMode::COLOR_BURN;
                             return Error::OK; 
                         }
                         break;
                     case 11:
-                        if (str == "COLOR_DODGE") {
+                        if (buffer == "COLOR_DODGE") {
                             value = octopus::BlendMode::COLOR_DODGE;
                             return Error::OK; 
                         }
@@ -345,34 +348,34 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                 }
                 break;
             case 'M':
-                if (str == "LUMINOSITY") {
+                if (buffer == "LUMINOSITY") {
                     value = octopus::BlendMode::LUMINOSITY;
                     return Error::OK; 
                 }
                 break;
             case 'N':
-                if (str.size() > 7) {
-                    switch (str[7]) {
+                if (buffer.size() > 7) {
+                    switch (buffer[7]) {
                         case 'B':
-                            if (str == "LINEAR_BURN") {
+                            if (buffer == "LINEAR_BURN") {
                                 value = octopus::BlendMode::LINEAR_BURN;
                                 return Error::OK; 
                             }
                             break;
                         case 'D':
-                            if (str == "LINEAR_DODGE") {
+                            if (buffer == "LINEAR_DODGE") {
                                 value = octopus::BlendMode::LINEAR_DODGE;
                                 return Error::OK; 
                             }
                             break;
                         case 'H':
-                            if (str == "PIN_LIGHT") {
+                            if (buffer == "PIN_LIGHT") {
                                 value = octopus::BlendMode::PIN_LIGHT;
                                 return Error::OK; 
                             }
                             break;
                         case 'L':
-                            if (str == "LINEAR_LIGHT") {
+                            if (buffer == "LINEAR_LIGHT") {
                                 value = octopus::BlendMode::LINEAR_LIGHT;
                                 return Error::OK; 
                             }
@@ -381,23 +384,23 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                 }
                 break;
             case 'R':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 6:
-                        switch (str[0]) {
+                        switch (buffer[0]) {
                             case 'D':
-                                if (str == "DARKEN") {
+                                if (buffer == "DARKEN") {
                                     value = octopus::BlendMode::DARKEN;
                                     return Error::OK; 
                                 }
                                 break;
                             case 'N':
-                                if (str == "NORMAL") {
+                                if (buffer == "NORMAL") {
                                     value = octopus::BlendMode::NORMAL;
                                     return Error::OK; 
                                 }
                                 break;
                             case 'S':
-                                if (str == "SCREEN") {
+                                if (buffer == "SCREEN") {
                                     value = octopus::BlendMode::SCREEN;
                                     return Error::OK; 
                                 }
@@ -405,19 +408,19 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                         }
                         break;
                     case 8:
-                        if (str == "HARD_MIX") {
+                        if (buffer == "HARD_MIX") {
                             value = octopus::BlendMode::HARD_MIX;
                             return Error::OK; 
                         }
                         break;
                     case 10:
-                        if (str == "HARD_LIGHT") {
+                        if (buffer == "HARD_LIGHT") {
                             value = octopus::BlendMode::HARD_LIGHT;
                             return Error::OK; 
                         }
                         break;
                     case 12:
-                        if (str == "DARKER_COLOR") {
+                        if (buffer == "DARKER_COLOR") {
                             value = octopus::BlendMode::DARKER_COLOR;
                             return Error::OK; 
                         }
@@ -425,27 +428,27 @@ Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
                 }
                 break;
             case 'S':
-                if (str == "PASS_THROUGH") {
+                if (buffer == "PASS_THROUGH") {
                     value = octopus::BlendMode::PASS_THROUGH;
                     return Error::OK; 
                 }
                 break;
             case 'T':
-                if (str == "SATURATION") {
+                if (buffer == "SATURATION") {
                     value = octopus::BlendMode::SATURATION;
                     return Error::OK; 
                 }
                 break;
             case 'V':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 6:
-                        if (str == "DIVIDE") {
+                        if (buffer == "DIVIDE") {
                             value = octopus::BlendMode::DIVIDE;
                             return Error::OK; 
                         }
                         break;
                     case 11:
-                        if (str == "VIVID_LIGHT") {
+                        if (buffer == "VIVID_LIGHT") {
                             value = octopus::BlendMode::VIVID_LIGHT;
                             return Error::OK; 
                         }
@@ -467,20 +470,19 @@ Parser::Error::Type Parser::parseNonstdOptionalStdString(nonstd::optional<std::s
 }
 
 Parser::Error::Type Parser::parseOctopusEffectBasis(octopus::EffectBasis &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            switch (str[0]) {
+            switch (buffer[0]) {
                 case 'B':
-                    if (str == "BODY") {
+                    if (buffer == "BODY") {
                         value = octopus::EffectBasis::BODY;
                         return Error::OK; 
                     }
                     break;
                 case 'F':
-                    if (str == "FILL") {
+                    if (buffer == "FILL") {
                         value = octopus::EffectBasis::FILL;
                         return Error::OK; 
                     }
@@ -488,19 +490,19 @@ Parser::Error::Type Parser::parseOctopusEffectBasis(octopus::EffectBasis &value)
             }
             break;
         case 10:
-            if (str == "BACKGROUND") {
+            if (buffer == "BACKGROUND") {
                 value = octopus::EffectBasis::BACKGROUND;
                 return Error::OK; 
             }
             break;
         case 16:
-            if (str == "BODY_AND_STROKES") {
+            if (buffer == "BODY_AND_STROKES") {
                 value = octopus::EffectBasis::BODY_AND_STROKES;
                 return Error::OK; 
             }
             break;
         case 17:
-            if (str == "LAYER_AND_EFFECTS") {
+            if (buffer == "LAYER_AND_EFFECTS") {
                 value = octopus::EffectBasis::LAYER_AND_EFFECTS;
                 return Error::OK; 
             }
@@ -519,28 +521,27 @@ Parser::Error::Type Parser::parseDouble(double &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusVec2(octopus::Vec2 &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'x':
-                    if (key == "x") {
+                    if (buffer == "x") {
                         if (Error error = parseDouble(value.x))
                             return error;
                         continue;
                     }
                     break;
                 case 'y':
-                    if (key == "y") {
+                    if (buffer == "y") {
                         if (Error error = parseDouble(value.y))
                             return error;
                         continue;
@@ -557,42 +558,41 @@ Parser::Error::Type Parser::parseOctopusVec2(octopus::Vec2 &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusColor(octopus::Color &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'a':
-                    if (key == "a") {
+                    if (buffer == "a") {
                         if (Error error = parseDouble(value.a))
                             return error;
                         continue;
                     }
                     break;
                 case 'b':
-                    if (key == "b") {
+                    if (buffer == "b") {
                         if (Error error = parseDouble(value.b))
                             return error;
                         continue;
                     }
                     break;
                 case 'g':
-                    if (key == "g") {
+                    if (buffer == "g") {
                         if (Error error = parseDouble(value.g))
                             return error;
                         continue;
                     }
                     break;
                 case 'r':
-                    if (key == "r") {
+                    if (buffer == "r") {
                         if (Error error = parseDouble(value.r))
                             return error;
                         continue;
@@ -609,42 +609,41 @@ Parser::Error::Type Parser::parseOctopusColor(octopus::Color &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusShadow(octopus::Shadow &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 1) {
-            switch (key[1]) {
+        if (buffer.size() > 1) {
+            switch (buffer[1]) {
                 case 'f':
-                    if (key == "offset") {
+                    if (buffer == "offset") {
                         if (Error error = parseOctopusVec2(value.offset))
                             return error;
                         continue;
                     }
                     break;
                 case 'h':
-                    if (key == "choke") {
+                    if (buffer == "choke") {
                         if (Error error = parseDouble(value.choke))
                             return error;
                         continue;
                     }
                     break;
                 case 'l':
-                    if (key == "blur") {
+                    if (buffer == "blur") {
                         if (Error error = parseDouble(value.blur))
                             return error;
                         continue;
                     }
                     break;
                 case 'o':
-                    if (key == "color") {
+                    if (buffer == "color") {
                         if (Error error = parseOctopusColor(value.color))
                             return error;
                         continue;
@@ -679,51 +678,50 @@ Parser::Error::Type Parser::parseNonstdOptionalDouble(nonstd::optional<double> &
 }
 
 Parser::Error::Type Parser::parseOctopusColorAdjustment(octopus::ColorAdjustment &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 1) {
-            switch (key[1]) {
+        if (buffer.size() > 1) {
+            switch (buffer[1]) {
                 case 'a':
-                    if (key == "saturation") {
+                    if (buffer == "saturation") {
                         if (Error error = parseDouble(value.saturation))
                             return error;
                         continue;
                     }
                     break;
                 case 'e':
-                    if (key == "temperature") {
+                    if (buffer == "temperature") {
                         if (Error error = parseDouble(value.temperature))
                             return error;
                         continue;
                     }
                     break;
                 case 'h':
-                    if (key == "shadows") {
+                    if (buffer == "shadows") {
                         if (Error error = parseDouble(value.shadows))
                             return error;
                         continue;
                     }
                     break;
                 case 'i':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "tint") {
+                            if (buffer == "tint") {
                                 if (Error error = parseDouble(value.tint))
                                     return error;
                                 continue;
                             }
                             break;
                         case 10:
-                            if (key == "highlights") {
+                            if (buffer == "highlights") {
                                 if (Error error = parseDouble(value.highlights))
                                     return error;
                                 continue;
@@ -732,28 +730,28 @@ Parser::Error::Type Parser::parseOctopusColorAdjustment(octopus::ColorAdjustment
                     }
                     break;
                 case 'o':
-                    if (key == "contrast") {
+                    if (buffer == "contrast") {
                         if (Error error = parseDouble(value.contrast))
                             return error;
                         continue;
                     }
                     break;
                 case 'r':
-                    if (key == "brightness") {
+                    if (buffer == "brightness") {
                         if (Error error = parseDouble(value.brightness))
                             return error;
                         continue;
                     }
                     break;
                 case 'u':
-                    if (key == "hue") {
+                    if (buffer == "hue") {
                         if (Error error = parseDouble(value.hue))
                             return error;
                         continue;
                     }
                     break;
                 case 'x':
-                    if (key == "exposure") {
+                    if (buffer == "exposure") {
                         if (Error error = parseDouble(value.exposure))
                             return error;
                         continue;
@@ -779,36 +777,35 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusColorAdjustment(nonstd::op
 }
 
 Parser::Error::Type Parser::parseOctopusFilterType(octopus::Filter::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 18:
-            if (str == "OPACITY_MULTIPLIER") {
+            if (buffer == "OPACITY_MULTIPLIER") {
                 value = octopus::Filter::Type::OPACITY_MULTIPLIER;
                 return Error::OK; 
             }
             break;
         case 22:
-            if (str == "FIGMA_COLOR_ADJUSTMENT") {
+            if (buffer == "FIGMA_COLOR_ADJUSTMENT") {
                 value = octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT;
                 return Error::OK; 
             }
             break;
         case 23:
-            if (str == "SKETCH_COLOR_ADJUSTMENT") {
+            if (buffer == "SKETCH_COLOR_ADJUSTMENT") {
                 value = octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT;
                 return Error::OK; 
             }
             break;
         case 24:
-            if (str == "XD_BRIGHTNESS_ADJUSTMENT") {
+            if (buffer == "XD_BRIGHTNESS_ADJUSTMENT") {
                 value = octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT;
                 return Error::OK; 
             }
             break;
         case 28:
-            if (str == "SKETCH_BRIGHTNESS_ADJUSTMENT") {
+            if (buffer == "SKETCH_BRIGHTNESS_ADJUSTMENT") {
                 value = octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT;
                 return Error::OK; 
             }
@@ -829,49 +826,48 @@ Parser::Error::Type Parser::parseBool(bool &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusFilter(octopus::Filter &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'b':
-                    if (key == "brightness") {
+                    if (buffer == "brightness") {
                         if (Error error = parseNonstdOptionalDouble(value.brightness))
                             return error;
                         continue;
                     }
                     break;
                 case 'c':
-                    if (key == "colorAdjustment") {
+                    if (buffer == "colorAdjustment") {
                         if (Error error = parseNonstdOptionalOctopusColorAdjustment(value.colorAdjustment))
                             return error;
                         continue;
                     }
                     break;
                 case 'o':
-                    if (key == "opacity") {
+                    if (buffer == "opacity") {
                         if (Error error = parseNonstdOptionalDouble(value.opacity))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "type") {
+                    if (buffer == "type") {
                         if (Error error = parseOctopusFilterType(value.type))
                             return error;
                         continue;
                     }
                     break;
                 case 'v':
-                    if (key == "visible") {
+                    if (buffer == "visible") {
                         if (Error error = parseBool(value.visible))
                             return error;
                         continue;
@@ -923,31 +919,30 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusColor(nonstd::optional<oct
 }
 
 Parser::Error::Type Parser::parseOctopusGradientType(octopus::Gradient::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'A':
-                if (str == "ANGULAR") {
+                if (buffer == "ANGULAR") {
                     value = octopus::Gradient::Type::ANGULAR;
                     return Error::OK; 
                 }
                 break;
             case 'D':
-                if (str == "DIAMOND") {
+                if (buffer == "DIAMOND") {
                     value = octopus::Gradient::Type::DIAMOND;
                     return Error::OK; 
                 }
                 break;
             case 'L':
-                if (str == "LINEAR") {
+                if (buffer == "LINEAR") {
                     value = octopus::Gradient::Type::LINEAR;
                     return Error::OK; 
                 }
                 break;
             case 'R':
-                if (str == "RADIAL") {
+                if (buffer == "RADIAL") {
                     value = octopus::Gradient::Type::RADIAL;
                     return Error::OK; 
                 }
@@ -958,24 +953,23 @@ Parser::Error::Type Parser::parseOctopusGradientType(octopus::Gradient::Type &va
 }
 
 Parser::Error::Type Parser::parseOctopusGradientInterpolation(octopus::Gradient::Interpolation &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 5:
-            if (str == "POWER") {
+            if (buffer == "POWER") {
                 value = octopus::Gradient::Interpolation::POWER;
                 return Error::OK; 
             }
             break;
         case 6:
-            if (str == "LINEAR") {
+            if (buffer == "LINEAR") {
                 value = octopus::Gradient::Interpolation::LINEAR;
                 return Error::OK; 
             }
             break;
         case 13:
-            if (str == "REVERSE_POWER") {
+            if (buffer == "REVERSE_POWER") {
                 value = octopus::Gradient::Interpolation::REVERSE_POWER;
                 return Error::OK; 
             }
@@ -985,41 +979,40 @@ Parser::Error::Type Parser::parseOctopusGradientInterpolation(octopus::Gradient:
 }
 
 Parser::Error::Type Parser::parseOctopusGradientColorStop(octopus::Gradient::ColorStop &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 5:
-                if (key == "color") {
+                if (buffer == "color") {
                     if (Error error = parseOctopusColor(value.color))
                         return error;
                     continue;
                 }
                 break;
             case 8:
-                if (key == "position") {
+                if (buffer == "position") {
                     if (Error error = parseDouble(value.position))
                         return error;
                     continue;
                 }
                 break;
             case 13:
-                if (key == "interpolation") {
+                if (buffer == "interpolation") {
                     if (Error error = parseOctopusGradientInterpolation(value.interpolation))
                         return error;
                     continue;
                 }
                 break;
             case 22:
-                if (key == "interpolationParameter") {
+                if (buffer == "interpolationParameter") {
                     if (Error error = parseNonstdOptionalDouble(value.interpolationParameter))
                         return error;
                     continue;
@@ -1052,27 +1045,26 @@ Parser::Error::Type Parser::parseStdVectorOctopusGradientColorStop(std::vector<o
 }
 
 Parser::Error::Type Parser::parseOctopusGradient(octopus::Gradient &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 4:
-                if (key == "type") {
+                if (buffer == "type") {
                     if (Error error = parseOctopusGradientType(value.type))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "stops") {
+                if (buffer == "stops") {
                     if (Error error = parseStdVectorOctopusGradientColorStop(value.stops))
                         return error;
                     continue;
@@ -1097,18 +1089,17 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusGradient(nonstd::optional<
 }
 
 Parser::Error::Type Parser::parseOctopusImageRefType(octopus::ImageRef::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            if (str == "PATH") {
+            if (buffer == "PATH") {
                 value = octopus::ImageRef::Type::PATH;
                 return Error::OK; 
             }
             break;
         case 12:
-            if (str == "RESOURCE_REF") {
+            if (buffer == "RESOURCE_REF") {
                 value = octopus::ImageRef::Type::RESOURCE_REF;
                 return Error::OK; 
             }
@@ -1118,27 +1109,26 @@ Parser::Error::Type Parser::parseOctopusImageRefType(octopus::ImageRef::Type &va
 }
 
 Parser::Error::Type Parser::parseOctopusImageRef(octopus::ImageRef &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 4:
-                if (key == "type") {
+                if (buffer == "type") {
                     if (Error error = parseOctopusImageRefType(value.type))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "value") {
+                if (buffer == "value") {
                     if (Error error = parseStdString(value.value))
                         return error;
                     continue;
@@ -1154,31 +1144,30 @@ Parser::Error::Type Parser::parseOctopusImageRef(octopus::ImageRef &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusRectangle(octopus::Rectangle &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'x':
-                    if (key.size() > 1) {
-                        switch (key[1]) {
+                    if (buffer.size() > 1) {
+                        switch (buffer[1]) {
                             case '0':
-                                if (key == "x0") {
+                                if (buffer == "x0") {
                                     if (Error error = parseDouble(value.x0))
                                         return error;
                                     continue;
                                 }
                                 break;
                             case '1':
-                                if (key == "x1") {
+                                if (buffer == "x1") {
                                     if (Error error = parseDouble(value.x1))
                                         return error;
                                     continue;
@@ -1188,17 +1177,17 @@ Parser::Error::Type Parser::parseOctopusRectangle(octopus::Rectangle &value) {
                     }
                     break;
                 case 'y':
-                    if (key.size() > 1) {
-                        switch (key[1]) {
+                    if (buffer.size() > 1) {
+                        switch (buffer[1]) {
                             case '0':
-                                if (key == "y0") {
+                                if (buffer == "y0") {
                                     if (Error error = parseDouble(value.y0))
                                         return error;
                                     continue;
                                 }
                                 break;
                             case '1':
-                                if (key == "y1") {
+                                if (buffer == "y1") {
                                     if (Error error = parseDouble(value.y1))
                                         return error;
                                     continue;
@@ -1227,27 +1216,26 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusRectangle(nonstd::optional
 }
 
 Parser::Error::Type Parser::parseOctopusImage(octopus::Image &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 3:
-                if (key == "ref") {
+                if (buffer == "ref") {
                     if (Error error = parseOctopusImageRef(value.ref))
                         return error;
                     continue;
                 }
                 break;
             case 10:
-                if (key == "subsection") {
+                if (buffer == "subsection") {
                     if (Error error = parseNonstdOptionalOctopusRectangle(value.subsection))
                         return error;
                     continue;
@@ -1272,26 +1260,25 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusImage(nonstd::optional<oct
 }
 
 Parser::Error::Type Parser::parseOctopusFillPositioningLayout(octopus::Fill::Positioning::Layout &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 3:
-            if (str == "FIT") {
+            if (buffer == "FIT") {
                 value = octopus::Fill::Positioning::Layout::FIT;
                 return Error::OK; 
             }
             break;
         case 4:
-            switch (str[0]) {
+            switch (buffer[0]) {
                 case 'F':
-                    if (str == "FILL") {
+                    if (buffer == "FILL") {
                         value = octopus::Fill::Positioning::Layout::FILL;
                         return Error::OK; 
                     }
                     break;
                 case 'T':
-                    if (str == "TILE") {
+                    if (buffer == "TILE") {
                         value = octopus::Fill::Positioning::Layout::TILE;
                         return Error::OK; 
                     }
@@ -1299,7 +1286,7 @@ Parser::Error::Type Parser::parseOctopusFillPositioningLayout(octopus::Fill::Pos
             }
             break;
         case 7:
-            if (str == "STRETCH") {
+            if (buffer == "STRETCH") {
                 value = octopus::Fill::Positioning::Layout::STRETCH;
                 return Error::OK; 
             }
@@ -1309,30 +1296,29 @@ Parser::Error::Type Parser::parseOctopusFillPositioningLayout(octopus::Fill::Pos
 }
 
 Parser::Error::Type Parser::parseOctopusFillPositioningOrigin(octopus::Fill::Positioning::Origin &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 5:
-            if (str == "LAYER") {
+            if (buffer == "LAYER") {
                 value = octopus::Fill::Positioning::Origin::LAYER;
                 return Error::OK; 
             }
             break;
         case 6:
-            if (str == "PARENT") {
+            if (buffer == "PARENT") {
                 value = octopus::Fill::Positioning::Origin::PARENT;
                 return Error::OK; 
             }
             break;
         case 8:
-            if (str == "ARTBOARD") {
+            if (buffer == "ARTBOARD") {
                 value = octopus::Fill::Positioning::Origin::ARTBOARD;
                 return Error::OK; 
             }
             break;
         case 9:
-            if (str == "COMPONENT") {
+            if (buffer == "COMPONENT") {
                 value = octopus::Fill::Positioning::Origin::COMPONENT;
                 return Error::OK; 
             }
@@ -1363,35 +1349,34 @@ Parser::Error::Type Parser::parseDouble_6(double value[6]) {
 }
 
 Parser::Error::Type Parser::parseOctopusFillPositioning(octopus::Fill::Positioning &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'l':
-                    if (key == "layout") {
+                    if (buffer == "layout") {
                         if (Error error = parseOctopusFillPositioningLayout(value.layout))
                             return error;
                         continue;
                     }
                     break;
                 case 'o':
-                    if (key == "origin") {
+                    if (buffer == "origin") {
                         if (Error error = parseOctopusFillPositioningOrigin(value.origin))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "transform") {
+                    if (buffer == "transform") {
                         if (Error error = parseDouble_6(value.transform))
                             return error;
                         continue;
@@ -1417,25 +1402,24 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusFillPositioning(nonstd::op
 }
 
 Parser::Error::Type Parser::parseOctopusFillType(octopus::Fill::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'C':
-                if (str == "COLOR") {
+                if (buffer == "COLOR") {
                     value = octopus::Fill::Type::COLOR;
                     return Error::OK; 
                 }
                 break;
             case 'G':
-                if (str == "GRADIENT") {
+                if (buffer == "GRADIENT") {
                     value = octopus::Fill::Type::GRADIENT;
                     return Error::OK; 
                 }
                 break;
             case 'I':
-                if (str == "IMAGE") {
+                if (buffer == "IMAGE") {
                     value = octopus::Fill::Type::IMAGE;
                     return Error::OK; 
                 }
@@ -1446,70 +1430,69 @@ Parser::Error::Type Parser::parseOctopusFillType(octopus::Fill::Type &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusFill(octopus::Fill &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'b':
-                    if (key == "blendMode") {
+                    if (buffer == "blendMode") {
                         if (Error error = parseOctopusBlendMode(value.blendMode))
                             return error;
                         continue;
                     }
                     break;
                 case 'c':
-                    if (key == "color") {
+                    if (buffer == "color") {
                         if (Error error = parseNonstdOptionalOctopusColor(value.color))
                             return error;
                         continue;
                     }
                     break;
                 case 'f':
-                    if (key == "filters") {
+                    if (buffer == "filters") {
                         if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
                             return error;
                         continue;
                     }
                     break;
                 case 'g':
-                    if (key == "gradient") {
+                    if (buffer == "gradient") {
                         if (Error error = parseNonstdOptionalOctopusGradient(value.gradient))
                             return error;
                         continue;
                     }
                     break;
                 case 'i':
-                    if (key == "image") {
+                    if (buffer == "image") {
                         if (Error error = parseNonstdOptionalOctopusImage(value.image))
                             return error;
                         continue;
                     }
                     break;
                 case 'p':
-                    if (key == "positioning") {
+                    if (buffer == "positioning") {
                         if (Error error = parseNonstdOptionalOctopusFillPositioning(value.positioning))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "type") {
+                    if (buffer == "type") {
                         if (Error error = parseOctopusFillType(value.type))
                             return error;
                         continue;
                     }
                     break;
                 case 'v':
-                    if (key == "visible") {
+                    if (buffer == "visible") {
                         if (Error error = parseBool(value.visible))
                             return error;
                         continue;
@@ -1526,25 +1509,24 @@ Parser::Error::Type Parser::parseOctopusFill(octopus::Fill &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusStrokePosition(octopus::Stroke::Position &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'C':
-                if (str == "CENTER") {
+                if (buffer == "CENTER") {
                     value = octopus::Stroke::Position::CENTER;
                     return Error::OK; 
                 }
                 break;
             case 'I':
-                if (str == "INSIDE") {
+                if (buffer == "INSIDE") {
                     value = octopus::Stroke::Position::INSIDE;
                     return Error::OK; 
                 }
                 break;
             case 'O':
-                if (str == "OUTSIDE") {
+                if (buffer == "OUTSIDE") {
                     value = octopus::Stroke::Position::OUTSIDE;
                     return Error::OK; 
                 }
@@ -1555,34 +1537,33 @@ Parser::Error::Type Parser::parseOctopusStrokePosition(octopus::Stroke::Position
 }
 
 Parser::Error::Type Parser::parseOctopusStroke(octopus::Stroke &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 4:
-                if (key == "fill") {
+                if (buffer == "fill") {
                     if (Error error = parseOctopusFill(value.fill))
                         return error;
                     continue;
                 }
                 break;
             case 8:
-                if (key == "position") {
+                if (buffer == "position") {
                     if (Error error = parseOctopusStrokePosition(value.position))
                         return error;
                     continue;
                 }
                 break;
             case 9:
-                if (key == "thickness") {
+                if (buffer == "thickness") {
                     if (Error error = parseDouble(value.thickness))
                         return error;
                     continue;
@@ -1616,50 +1597,49 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusFill(nonstd::optional<octo
 }
 
 Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            if (str == "BLUR") {
+            if (buffer == "BLUR") {
                 value = octopus::Effect::Type::BLUR;
                 return Error::OK; 
             }
             break;
         case 5:
-            if (str == "OTHER") {
+            if (buffer == "OTHER") {
                 value = octopus::Effect::Type::OTHER;
                 return Error::OK; 
             }
             break;
         case 6:
-            if (str == "STROKE") {
+            if (buffer == "STROKE") {
                 value = octopus::Effect::Type::STROKE;
                 return Error::OK; 
             }
             break;
         case 7:
-            if (str == "OVERLAY") {
+            if (buffer == "OVERLAY") {
                 value = octopus::Effect::Type::OVERLAY;
                 return Error::OK; 
             }
             break;
         case 11:
-            if (str == "DROP_SHADOW") {
+            if (buffer == "DROP_SHADOW") {
                 value = octopus::Effect::Type::DROP_SHADOW;
                 return Error::OK; 
             }
             break;
         case 12:
-            switch (str[0]) {
+            switch (buffer[0]) {
                 case 'B':
-                    if (str == "BOUNDED_BLUR") {
+                    if (buffer == "BOUNDED_BLUR") {
                         value = octopus::Effect::Type::BOUNDED_BLUR;
                         return Error::OK; 
                     }
                     break;
                 case 'I':
-                    if (str == "INNER_SHADOW") {
+                    if (buffer == "INNER_SHADOW") {
                         value = octopus::Effect::Type::INNER_SHADOW;
                         return Error::OK; 
                     }
@@ -1667,7 +1647,7 @@ Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value)
             }
             break;
         case 13:
-            if (str == "GAUSSIAN_BLUR") {
+            if (buffer == "GAUSSIAN_BLUR") {
                 value = octopus::Effect::Type::GAUSSIAN_BLUR;
                 return Error::OK; 
             }
@@ -1677,44 +1657,43 @@ Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value)
 }
 
 Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 1) {
-            switch (key[1]) {
+        if (buffer.size() > 1) {
+            switch (buffer[1]) {
                 case 'a':
-                    if (key == "basis") {
+                    if (buffer == "basis") {
                         if (Error error = parseOctopusEffectBasis(value.basis))
                             return error;
                         continue;
                     }
                     break;
                 case 'h':
-                    if (key == "shadow") {
+                    if (buffer == "shadow") {
                         if (Error error = parseNonstdOptionalOctopusShadow(value.shadow))
                             return error;
                         continue;
                     }
                     break;
                 case 'i':
-                    switch (key[0]) {
+                    switch (buffer[0]) {
                         case 'f':
-                            if (key == "filters") {
+                            if (buffer == "filters") {
                                 if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
                                     return error;
                                 continue;
                             }
                             break;
                         case 'v':
-                            if (key == "visible") {
+                            if (buffer == "visible") {
                                 if (Error error = parseBool(value.visible))
                                     return error;
                                 continue;
@@ -1723,16 +1702,16 @@ Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
                     }
                     break;
                 case 'l':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "blur") {
+                            if (buffer == "blur") {
                                 if (Error error = parseNonstdOptionalDouble(value.blur))
                                     return error;
                                 continue;
                             }
                             break;
                         case 9:
-                            if (key == "blendMode") {
+                            if (buffer == "blendMode") {
                                 if (Error error = parseOctopusBlendMode(value.blendMode))
                                     return error;
                                 continue;
@@ -1741,21 +1720,21 @@ Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
                     }
                     break;
                 case 't':
-                    if (key == "stroke") {
+                    if (buffer == "stroke") {
                         if (Error error = parseNonstdOptionalOctopusStroke(value.stroke))
                             return error;
                         continue;
                     }
                     break;
                 case 'v':
-                    if (key == "overlay") {
+                    if (buffer == "overlay") {
                         if (Error error = parseNonstdOptionalOctopusFill(value.overlay))
                             return error;
                         continue;
                     }
                     break;
                 case 'y':
-                    if (key == "type") {
+                    if (buffer == "type") {
                         if (Error error = parseOctopusEffectType(value.type))
                             return error;
                         continue;
@@ -1815,20 +1794,19 @@ Parser::Error::Type Parser::parseNonstdOptionalStdListOctopusLayer(nonstd::optio
 }
 
 Parser::Error::Type Parser::parseOctopusMaskBasis(octopus::MaskBasis &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            switch (str[0]) {
+            switch (buffer[0]) {
                 case 'B':
-                    if (str == "BODY") {
+                    if (buffer == "BODY") {
                         value = octopus::MaskBasis::BODY;
                         return Error::OK; 
                     }
                     break;
                 case 'F':
-                    if (str == "FILL") {
+                    if (buffer == "FILL") {
                         value = octopus::MaskBasis::FILL;
                         return Error::OK; 
                     }
@@ -1836,21 +1814,21 @@ Parser::Error::Type Parser::parseOctopusMaskBasis(octopus::MaskBasis &value) {
             }
             break;
         case 5:
-            if (str == "SOLID") {
+            if (buffer == "SOLID") {
                 value = octopus::MaskBasis::SOLID;
                 return Error::OK; 
             }
             break;
         case 10:
-            switch (str[0]) {
+            switch (buffer[0]) {
                 case 'B':
-                    if (str == "BODY_EMBED") {
+                    if (buffer == "BODY_EMBED") {
                         value = octopus::MaskBasis::BODY_EMBED;
                         return Error::OK; 
                     }
                     break;
                 case 'F':
-                    if (str == "FILL_EMBED") {
+                    if (buffer == "FILL_EMBED") {
                         value = octopus::MaskBasis::FILL_EMBED;
                         return Error::OK; 
                     }
@@ -1858,7 +1836,7 @@ Parser::Error::Type Parser::parseOctopusMaskBasis(octopus::MaskBasis &value) {
             }
             break;
         case 17:
-            if (str == "LAYER_AND_EFFECTS") {
+            if (buffer == "LAYER_AND_EFFECTS") {
                 value = octopus::MaskBasis::LAYER_AND_EFFECTS;
                 return Error::OK; 
             }
@@ -1925,31 +1903,30 @@ Parser::Error::Type Parser::parseStdVectorStdString(std::vector<std::string> &va
 }
 
 Parser::Error::Type Parser::parseOctopusLayerChangeOp(octopus::LayerChange::Op &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 2) {
-        switch (str[2]) {
+    if (buffer.size() > 2) {
+        switch (buffer[2]) {
             case 'M':
-                if (str == "REMOVE") {
+                if (buffer == "REMOVE") {
                     value = octopus::LayerChange::Op::REMOVE;
                     return Error::OK; 
                 }
                 break;
             case 'O':
-                if (str == "PROPERTY_CHANGE") {
+                if (buffer == "PROPERTY_CHANGE") {
                     value = octopus::LayerChange::Op::PROPERTY_CHANGE;
                     return Error::OK; 
                 }
                 break;
             case 'P':
-                if (str == "REPLACE") {
+                if (buffer == "REPLACE") {
                     value = octopus::LayerChange::Op::REPLACE;
                     return Error::OK; 
                 }
                 break;
             case 'S':
-                if (str == "INSERT") {
+                if (buffer == "INSERT") {
                     value = octopus::LayerChange::Op::INSERT;
                     return Error::OK; 
                 }
@@ -2001,41 +1978,40 @@ Parser::Error::Type Parser::parseNonstdOptionalBool(nonstd::optional<bool> &valu
 }
 
 Parser::Error::Type Parser::parseOctopusFont(octopus::Font &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 5:
-                if (key == "style") {
+                if (buffer == "style") {
                     if (Error error = parseNonstdOptionalStdString(value.style))
                         return error;
                     continue;
                 }
                 break;
             case 6:
-                if (key == "family") {
+                if (buffer == "family") {
                     if (Error error = parseNonstdOptionalStdString(value.family))
                         return error;
                     continue;
                 }
                 break;
             case 14:
-                if (key == "postScriptName") {
+                if (buffer == "postScriptName") {
                     if (Error error = parseStdString(value.postScriptName))
                         return error;
                     continue;
                 }
                 break;
             case 23:
-                if (key == "syntheticPostScriptName") {
+                if (buffer == "syntheticPostScriptName") {
                     if (Error error = parseNonstdOptionalBool(value.syntheticPostScriptName))
                         return error;
                     continue;
@@ -2112,24 +2088,23 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorDouble(nonstd::optional<
 }
 
 Parser::Error::Type Parser::parseOctopusVectorStrokeLineCap(octopus::VectorStroke::LineCap &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            if (str == "BUTT") {
+            if (buffer == "BUTT") {
                 value = octopus::VectorStroke::LineCap::BUTT;
                 return Error::OK; 
             }
             break;
         case 5:
-            if (str == "ROUND") {
+            if (buffer == "ROUND") {
                 value = octopus::VectorStroke::LineCap::ROUND;
                 return Error::OK; 
             }
             break;
         case 6:
-            if (str == "SQUARE") {
+            if (buffer == "SQUARE") {
                 value = octopus::VectorStroke::LineCap::SQUARE;
                 return Error::OK; 
             }
@@ -2148,25 +2123,24 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineCap(nonstd
 }
 
 Parser::Error::Type Parser::parseOctopusVectorStrokeLineJoin(octopus::VectorStroke::LineJoin &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'B':
-                if (str == "BEVEL") {
+                if (buffer == "BEVEL") {
                     value = octopus::VectorStroke::LineJoin::BEVEL;
                     return Error::OK; 
                 }
                 break;
             case 'M':
-                if (str == "MITER") {
+                if (buffer == "MITER") {
                     value = octopus::VectorStroke::LineJoin::MITER;
                     return Error::OK; 
                 }
                 break;
             case 'R':
-                if (str == "ROUND") {
+                if (buffer == "ROUND") {
                     value = octopus::VectorStroke::LineJoin::ROUND;
                     return Error::OK; 
                 }
@@ -2186,25 +2160,24 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineJoin(nonst
 }
 
 Parser::Error::Type Parser::parseOctopusVectorStrokeStyle(octopus::VectorStroke::Style &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 2) {
-        switch (str[2]) {
+    if (buffer.size() > 2) {
+        switch (buffer[2]) {
             case 'L':
-                if (str == "SOLID") {
+                if (buffer == "SOLID") {
                     value = octopus::VectorStroke::Style::SOLID;
                     return Error::OK; 
                 }
                 break;
             case 'S':
-                if (str == "DASHED") {
+                if (buffer == "DASHED") {
                     value = octopus::VectorStroke::Style::DASHED;
                     return Error::OK; 
                 }
                 break;
             case 'T':
-                if (str == "DOTTED") {
+                if (buffer == "DOTTED") {
                     value = octopus::VectorStroke::Style::DOTTED;
                     return Error::OK; 
                 }
@@ -2224,30 +2197,29 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeStyle(nonstd::
 }
 
 Parser::Error::Type Parser::parseOctopusVectorStroke(octopus::VectorStroke &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'd':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 7:
-                            if (key == "dashing") {
+                            if (buffer == "dashing") {
                                 if (Error error = parseNonstdOptionalStdVectorDouble(value.dashing))
                                     return error;
                                 continue;
                             }
                             break;
                         case 10:
-                            if (key == "dashOffset") {
+                            if (buffer == "dashOffset") {
                                 if (Error error = parseNonstdOptionalDouble(value.dashOffset))
                                     return error;
                                 continue;
@@ -2256,23 +2228,23 @@ Parser::Error::Type Parser::parseOctopusVectorStroke(octopus::VectorStroke &valu
                     }
                     break;
                 case 'f':
-                    if (key == "fill") {
+                    if (buffer == "fill") {
                         if (Error error = parseOctopusFill(value.fill))
                             return error;
                         continue;
                     }
                     break;
                 case 'l':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 7:
-                            if (key == "lineCap") {
+                            if (buffer == "lineCap") {
                                 if (Error error = parseNonstdOptionalOctopusVectorStrokeLineCap(value.lineCap))
                                     return error;
                                 continue;
                             }
                             break;
                         case 8:
-                            if (key == "lineJoin") {
+                            if (buffer == "lineJoin") {
                                 if (Error error = parseNonstdOptionalOctopusVectorStrokeLineJoin(value.lineJoin))
                                     return error;
                                 continue;
@@ -2281,35 +2253,35 @@ Parser::Error::Type Parser::parseOctopusVectorStroke(octopus::VectorStroke &valu
                     }
                     break;
                 case 'm':
-                    if (key == "miterLimit") {
+                    if (buffer == "miterLimit") {
                         if (Error error = parseNonstdOptionalDouble(value.miterLimit))
                             return error;
                         continue;
                     }
                     break;
                 case 'p':
-                    if (key == "position") {
+                    if (buffer == "position") {
                         if (Error error = parseOctopusStrokePosition(value.position))
                             return error;
                         continue;
                     }
                     break;
                 case 's':
-                    if (key == "style") {
+                    if (buffer == "style") {
                         if (Error error = parseNonstdOptionalOctopusVectorStrokeStyle(value.style))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "thickness") {
+                    if (buffer == "thickness") {
                         if (Error error = parseDouble(value.thickness))
                             return error;
                         continue;
                     }
                     break;
                 case 'v':
-                    if (key == "visible") {
+                    if (buffer == "visible") {
                         if (Error error = parseBool(value.visible))
                             return error;
                         continue;
@@ -2352,27 +2324,26 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusVectorStroke(nons
 }
 
 Parser::Error::Type Parser::parseOctopusOpenTypeFeature(octopus::OpenTypeFeature &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 3:
-                if (key == "tag") {
+                if (buffer == "tag") {
                     if (Error error = parseStdString(value.tag))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "value") {
+                if (buffer == "value") {
                     if (Error error = parseInt(value.value))
                         return error;
                     continue;
@@ -2414,24 +2385,23 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOpenTypeFeature(n
 }
 
 Parser::Error::Type Parser::parseOctopusTextStyleLigatures(octopus::TextStyle::Ligatures &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 3:
-            if (str == "ALL") {
+            if (buffer == "ALL") {
                 value = octopus::TextStyle::Ligatures::ALL;
                 return Error::OK; 
             }
             break;
         case 4:
-            if (str == "NONE") {
+            if (buffer == "NONE") {
                 value = octopus::TextStyle::Ligatures::NONE;
                 return Error::OK; 
             }
             break;
         case 8:
-            if (str == "STANDARD") {
+            if (buffer == "STANDARD") {
                 value = octopus::TextStyle::Ligatures::STANDARD;
                 return Error::OK; 
             }
@@ -2450,25 +2420,24 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLigatures(nonstd:
 }
 
 Parser::Error::Type Parser::parseOctopusTextStyleUnderline(octopus::TextStyle::Underline &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'D':
-                if (str == "DOUBLE") {
+                if (buffer == "DOUBLE") {
                     value = octopus::TextStyle::Underline::DOUBLE;
                     return Error::OK; 
                 }
                 break;
             case 'N':
-                if (str == "NONE") {
+                if (buffer == "NONE") {
                     value = octopus::TextStyle::Underline::NONE;
                     return Error::OK; 
                 }
                 break;
             case 'S':
-                if (str == "SINGLE") {
+                if (buffer == "SINGLE") {
                     value = octopus::TextStyle::Underline::SINGLE;
                     return Error::OK; 
                 }
@@ -2488,37 +2457,36 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleUnderline(nonstd:
 }
 
 Parser::Error::Type Parser::parseOctopusTextStyleLetterCase(octopus::TextStyle::LetterCase &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'L':
-                if (str == "LOWERCASE") {
+                if (buffer == "LOWERCASE") {
                     value = octopus::TextStyle::LetterCase::LOWERCASE;
                     return Error::OK; 
                 }
                 break;
             case 'N':
-                if (str == "NONE") {
+                if (buffer == "NONE") {
                     value = octopus::TextStyle::LetterCase::NONE;
                     return Error::OK; 
                 }
                 break;
             case 'S':
-                if (str == "SMALL_CAPS") {
+                if (buffer == "SMALL_CAPS") {
                     value = octopus::TextStyle::LetterCase::SMALL_CAPS;
                     return Error::OK; 
                 }
                 break;
             case 'T':
-                if (str == "TITLE_CASE") {
+                if (buffer == "TITLE_CASE") {
                     value = octopus::TextStyle::LetterCase::TITLE_CASE;
                     return Error::OK; 
                 }
                 break;
             case 'U':
-                if (str == "UPPERCASE") {
+                if (buffer == "UPPERCASE") {
                     value = octopus::TextStyle::LetterCase::UPPERCASE;
                     return Error::OK; 
                 }
@@ -2538,43 +2506,42 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLetterCase(nonstd
 }
 
 Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 4:
-                if (key == "font") {
+                if (buffer == "font") {
                     if (Error error = parseNonstdOptionalOctopusFont(value.font))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "fills") {
+                if (buffer == "fills") {
                     if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))
                         return error;
                     continue;
                 }
                 break;
             case 7:
-                switch (key[0]) {
+                switch (buffer[0]) {
                     case 'k':
-                        if (key == "kerning") {
+                        if (buffer == "kerning") {
                             if (Error error = parseNonstdOptionalBool(value.kerning))
                                 return error;
                             continue;
                         }
                         break;
                     case 's':
-                        if (key == "strokes") {
+                        if (buffer == "strokes") {
                             if (Error error = parseNonstdOptionalStdVectorOctopusVectorStroke(value.strokes))
                                 return error;
                             continue;
@@ -2583,16 +2550,16 @@ Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
                 }
                 break;
             case 8:
-                switch (key[1]) {
+                switch (buffer[1]) {
                     case 'e':
-                        if (key == "features") {
+                        if (buffer == "features") {
                             if (Error error = parseNonstdOptionalStdVectorOctopusOpenTypeFeature(value.features))
                                 return error;
                             continue;
                         }
                         break;
                     case 'o':
-                        if (key == "fontSize") {
+                        if (buffer == "fontSize") {
                             if (Error error = parseNonstdOptionalDouble(value.fontSize))
                                 return error;
                             continue;
@@ -2601,16 +2568,16 @@ Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
                 }
                 break;
             case 9:
-                switch (key[0]) {
+                switch (buffer[0]) {
                     case 'l':
-                        if (key == "ligatures") {
+                        if (buffer == "ligatures") {
                             if (Error error = parseNonstdOptionalOctopusTextStyleLigatures(value.ligatures))
                                 return error;
                             continue;
                         }
                         break;
                     case 'u':
-                        if (key == "underline") {
+                        if (buffer == "underline") {
                             if (Error error = parseNonstdOptionalOctopusTextStyleUnderline(value.underline))
                                 return error;
                             continue;
@@ -2619,16 +2586,16 @@ Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
                 }
                 break;
             case 10:
-                switch (key[1]) {
+                switch (buffer[1]) {
                     case 'e':
-                        if (key == "letterCase") {
+                        if (buffer == "letterCase") {
                             if (Error error = parseNonstdOptionalOctopusTextStyleLetterCase(value.letterCase))
                                 return error;
                             continue;
                         }
                         break;
                     case 'i':
-                        if (key == "lineHeight") {
+                        if (buffer == "lineHeight") {
                             if (Error error = parseNonstdOptionalDouble(value.lineHeight))
                                 return error;
                             continue;
@@ -2637,14 +2604,14 @@ Parser::Error::Type Parser::parseOctopusTextStyle(octopus::TextStyle &value) {
                 }
                 break;
             case 11:
-                if (key == "linethrough") {
+                if (buffer == "linethrough") {
                     if (Error error = parseNonstdOptionalBool(value.linethrough))
                         return error;
                     continue;
                 }
                 break;
             case 13:
-                if (key == "letterSpacing") {
+                if (buffer == "letterSpacing") {
                     if (Error error = parseNonstdOptionalDouble(value.letterSpacing))
                         return error;
                     continue;
@@ -2696,19 +2663,18 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusFilter(nonstd::optional<oc
 }
 
 Parser::Error::Type Parser::parseOctopusShapeFillRule(octopus::Shape::FillRule &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'E':
-                if (str == "EVEN_ODD") {
+                if (buffer == "EVEN_ODD") {
                     value = octopus::Shape::FillRule::EVEN_ODD;
                     return Error::OK; 
                 }
                 break;
             case 'N':
-                if (str == "NON_ZERO") {
+                if (buffer == "NON_ZERO") {
                     value = octopus::Shape::FillRule::NON_ZERO;
                     return Error::OK; 
                 }
@@ -2728,30 +2694,29 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusShapeFillRule(nonstd::opti
 }
 
 Parser::Error::Type Parser::parseOctopusPathOp(octopus::Path::Op &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 5:
-            if (str == "UNION") {
+            if (buffer == "UNION") {
                 value = octopus::Path::Op::UNION;
                 return Error::OK; 
             }
             break;
         case 7:
-            if (str == "EXCLUDE") {
+            if (buffer == "EXCLUDE") {
                 value = octopus::Path::Op::EXCLUDE;
                 return Error::OK; 
             }
             break;
         case 8:
-            if (str == "SUBTRACT") {
+            if (buffer == "SUBTRACT") {
                 value = octopus::Path::Op::SUBTRACT;
                 return Error::OK; 
             }
             break;
         case 9:
-            if (str == "INTERSECT") {
+            if (buffer == "INTERSECT") {
                 value = octopus::Path::Op::INTERSECT;
                 return Error::OK; 
             }
@@ -2770,24 +2735,23 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusPathOp(nonstd::optional<oc
 }
 
 Parser::Error::Type Parser::parseOctopusPathType(octopus::Path::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            if (str == "PATH") {
+            if (buffer == "PATH") {
                 value = octopus::Path::Type::PATH;
                 return Error::OK; 
             }
             break;
         case 8:
-            if (str == "COMPOUND") {
+            if (buffer == "COMPOUND") {
                 value = octopus::Path::Type::COMPOUND;
                 return Error::OK; 
             }
             break;
         case 9:
-            if (str == "RECTANGLE") {
+            if (buffer == "RECTANGLE") {
                 value = octopus::Path::Type::RECTANGLE;
                 return Error::OK; 
             }
@@ -2823,64 +2787,63 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusPath(nonstd::opti
 }
 
 Parser::Error::Type Parser::parseOctopusPath(octopus::Path &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 2:
-                if (key == "op") {
+                if (buffer == "op") {
                     if (Error error = parseNonstdOptionalOctopusPathOp(value.op))
                         return error;
                     continue;
                 }
                 break;
             case 4:
-                if (key == "type") {
+                if (buffer == "type") {
                     if (Error error = parseOctopusPathType(value.type))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "paths") {
+                if (buffer == "paths") {
                     if (Error error = parseNonstdOptionalStdVectorOctopusPath(value.paths))
                         return error;
                     continue;
                 }
                 break;
             case 7:
-                if (key == "visible") {
+                if (buffer == "visible") {
                     if (Error error = parseBool(value.visible))
                         return error;
                     continue;
                 }
                 break;
             case 8:
-                if (key == "geometry") {
+                if (buffer == "geometry") {
                     if (Error error = parseNonstdOptionalStdString(value.geometry))
                         return error;
                     continue;
                 }
                 break;
             case 9:
-                switch (key[0]) {
+                switch (buffer[0]) {
                     case 'r':
-                        if (key == "rectangle") {
+                        if (buffer == "rectangle") {
                             if (Error error = parseNonstdOptionalOctopusRectangle(value.rectangle))
                                 return error;
                             continue;
                         }
                         break;
                     case 't':
-                        if (key == "transform") {
+                        if (buffer == "transform") {
                             if (Error error = parseDouble_6(value.transform))
                                 return error;
                             continue;
@@ -2889,14 +2852,14 @@ Parser::Error::Type Parser::parseOctopusPath(octopus::Path &value) {
                 }
                 break;
             case 11:
-                if (key == "cornerRadii") {
+                if (buffer == "cornerRadii") {
                     if (Error error = parseNonstdOptionalStdVectorDouble(value.cornerRadii))
                         return error;
                     continue;
                 }
                 break;
             case 12:
-                if (key == "cornerRadius") {
+                if (buffer == "cornerRadius") {
                     if (Error error = parseNonstdOptionalDouble(value.cornerRadius))
                         return error;
                     continue;
@@ -2921,30 +2884,29 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusPath(nonstd::optional<octo
 }
 
 Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'd':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 7:
-                            if (key == "dashing") {
+                            if (buffer == "dashing") {
                                 if (Error error = parseNonstdOptionalStdVectorDouble(value.dashing))
                                     return error;
                                 continue;
                             }
                             break;
                         case 10:
-                            if (key == "dashOffset") {
+                            if (buffer == "dashOffset") {
                                 if (Error error = parseNonstdOptionalDouble(value.dashOffset))
                                     return error;
                                 continue;
@@ -2953,16 +2915,16 @@ Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &valu
                     }
                     break;
                 case 'f':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "fill") {
+                            if (buffer == "fill") {
                                 if (Error error = parseOctopusFill(value.fill))
                                     return error;
                                 continue;
                             }
                             break;
                         case 8:
-                            if (key == "fillRule") {
+                            if (buffer == "fillRule") {
                                 if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
                                     return error;
                                 continue;
@@ -2971,16 +2933,16 @@ Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &valu
                     }
                     break;
                 case 'l':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 7:
-                            if (key == "lineCap") {
+                            if (buffer == "lineCap") {
                                 if (Error error = parseNonstdOptionalOctopusVectorStrokeLineCap(value.lineCap))
                                     return error;
                                 continue;
                             }
                             break;
                         case 8:
-                            if (key == "lineJoin") {
+                            if (buffer == "lineJoin") {
                                 if (Error error = parseNonstdOptionalOctopusVectorStrokeLineJoin(value.lineJoin))
                                     return error;
                                 continue;
@@ -2989,23 +2951,23 @@ Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &valu
                     }
                     break;
                 case 'm':
-                    if (key == "miterLimit") {
+                    if (buffer == "miterLimit") {
                         if (Error error = parseNonstdOptionalDouble(value.miterLimit))
                             return error;
                         continue;
                     }
                     break;
                 case 'p':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "path") {
+                            if (buffer == "path") {
                                 if (Error error = parseNonstdOptionalOctopusPath(value.path))
                                     return error;
                                 continue;
                             }
                             break;
                         case 8:
-                            if (key == "position") {
+                            if (buffer == "position") {
                                 if (Error error = parseOctopusStrokePosition(value.position))
                                     return error;
                                 continue;
@@ -3014,21 +2976,21 @@ Parser::Error::Type Parser::parseOctopusShapeStroke(octopus::Shape::Stroke &valu
                     }
                     break;
                 case 's':
-                    if (key == "style") {
+                    if (buffer == "style") {
                         if (Error error = parseNonstdOptionalOctopusVectorStrokeStyle(value.style))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "thickness") {
+                    if (buffer == "thickness") {
                         if (Error error = parseDouble(value.thickness))
                             return error;
                         continue;
                     }
                     break;
                 case 'v':
-                    if (key == "visible") {
+                    if (buffer == "visible") {
                         if (Error error = parseBool(value.visible))
                             return error;
                         continue;
@@ -3062,41 +3024,40 @@ Parser::Error::Type Parser::parseStdVectorOctopusShapeStroke(std::vector<octopus
 }
 
 Parser::Error::Type Parser::parseOctopusShape(octopus::Shape &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 4:
-                if (key == "path") {
+                if (buffer == "path") {
                     if (Error error = parseNonstdOptionalOctopusPath(value.path))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "fills") {
+                if (buffer == "fills") {
                     if (Error error = parseStdVectorOctopusFill(value.fills))
                         return error;
                     continue;
                 }
                 break;
             case 7:
-                if (key == "strokes") {
+                if (buffer == "strokes") {
                     if (Error error = parseStdVectorOctopusShapeStroke(value.strokes))
                         return error;
                     continue;
                 }
                 break;
             case 8:
-                if (key == "fillRule") {
+                if (buffer == "fillRule") {
                     if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
                         return error;
                     continue;
@@ -3130,27 +3091,26 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStroke(nonstd::optio
 }
 
 Parser::Error::Type Parser::parseOctopusStyleRangeRange(octopus::StyleRange::Range &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 2:
-                if (key == "to") {
+                if (buffer == "to") {
                     if (Error error = parseInt(value.to))
                         return error;
                     continue;
                 }
                 break;
             case 4:
-                if (key == "from") {
+                if (buffer == "from") {
                     if (Error error = parseInt(value.from))
                         return error;
                     continue;
@@ -3183,27 +3143,26 @@ Parser::Error::Type Parser::parseStdVectorOctopusStyleRangeRange(std::vector<oct
 }
 
 Parser::Error::Type Parser::parseOctopusStyleRange(octopus::StyleRange &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 5:
-                if (key == "style") {
+                if (buffer == "style") {
                     if (Error error = parseOctopusTextStyle(value.style))
                         return error;
                     continue;
                 }
                 break;
             case 6:
-                if (key == "ranges") {
+                if (buffer == "ranges") {
                     if (Error error = parseStdVectorOctopusStyleRangeRange(value.ranges))
                         return error;
                     continue;
@@ -3244,57 +3203,39 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusStyleRange(nonstd
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseStdVectorOctopusStroke(std::vector<octopus::Stroke> &value) {
-    if (!matchSymbol('['))
-        return Error::TYPE_MISMATCH;
-    value.clear();
-    int separatorCheck = -1;
-    while (!matchSymbol(']')) {
-        if (!separatorCheck)
-            return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseOctopusStroke((value.resize(value.size()+1), value.back())))
-            return error;
-        separatorCheck = matchSymbol(',');
-    }
-    if (separatorCheck == 1)
-        return Error::JSON_SYNTAX_ERROR;
-    return Error::OK;
-}
-
-Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusStroke(nonstd::optional<std::vector<octopus::Stroke> > &value) {
+Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusShapeStroke(nonstd::optional<std::vector<octopus::Shape::Stroke> > &value) {
     skipWhitespace();
     if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
-    else if (Error error = parseStdVectorOctopusStroke((value = std::vector<octopus::Stroke>()).value()))
+    else if (Error error = parseStdVectorOctopusShapeStroke((value = std::vector<octopus::Shape::Stroke>()).value()))
         return error;
     return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusTextBaselinePolicy(octopus::Text::BaselinePolicy &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 3:
-            if (str == "SET") {
+            if (buffer == "SET") {
                 value = octopus::Text::BaselinePolicy::SET;
                 return Error::OK; 
             }
             break;
         case 6:
-            if (str == "CENTER") {
+            if (buffer == "CENTER") {
                 value = octopus::Text::BaselinePolicy::CENTER;
                 return Error::OK; 
             }
             break;
         case 14:
-            if (str == "OFFSET_BEARING") {
+            if (buffer == "OFFSET_BEARING") {
                 value = octopus::Text::BaselinePolicy::OFFSET_BEARING;
                 return Error::OK; 
             }
             break;
         case 15:
-            if (str == "OFFSET_ASCENDER") {
+            if (buffer == "OFFSET_ASCENDER") {
                 value = octopus::Text::BaselinePolicy::OFFSET_ASCENDER;
                 return Error::OK; 
             }
@@ -3304,30 +3245,29 @@ Parser::Error::Type Parser::parseOctopusTextBaselinePolicy(octopus::Text::Baseli
 }
 
 Parser::Error::Type Parser::parseOctopusTextHorizontalAlign(octopus::Text::HorizontalAlign &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            if (str == "LEFT") {
+            if (buffer == "LEFT") {
                 value = octopus::Text::HorizontalAlign::LEFT;
                 return Error::OK; 
             }
             break;
         case 5:
-            if (str == "RIGHT") {
+            if (buffer == "RIGHT") {
                 value = octopus::Text::HorizontalAlign::RIGHT;
                 return Error::OK; 
             }
             break;
         case 6:
-            if (str == "CENTER") {
+            if (buffer == "CENTER") {
                 value = octopus::Text::HorizontalAlign::CENTER;
                 return Error::OK; 
             }
             break;
         case 7:
-            if (str == "JUSTIFY") {
+            if (buffer == "JUSTIFY") {
                 value = octopus::Text::HorizontalAlign::JUSTIFY;
                 return Error::OK; 
             }
@@ -3337,24 +3277,23 @@ Parser::Error::Type Parser::parseOctopusTextHorizontalAlign(octopus::Text::Horiz
 }
 
 Parser::Error::Type Parser::parseOctopusTextFrameMode(octopus::TextFrame::Mode &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 5:
-            if (str == "FIXED") {
+            if (buffer == "FIXED") {
                 value = octopus::TextFrame::Mode::FIXED;
                 return Error::OK; 
             }
             break;
         case 10:
-            if (str == "AUTO_WIDTH") {
+            if (buffer == "AUTO_WIDTH") {
                 value = octopus::TextFrame::Mode::AUTO_WIDTH;
                 return Error::OK; 
             }
             break;
         case 11:
-            if (str == "AUTO_HEIGHT") {
+            if (buffer == "AUTO_HEIGHT") {
                 value = octopus::TextFrame::Mode::AUTO_HEIGHT;
                 return Error::OK; 
             }
@@ -3364,27 +3303,26 @@ Parser::Error::Type Parser::parseOctopusTextFrameMode(octopus::TextFrame::Mode &
 }
 
 Parser::Error::Type Parser::parseOctopusDimensions(octopus::Dimensions &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 5:
-                if (key == "width") {
+                if (buffer == "width") {
                     if (Error error = parseDouble(value.width))
                         return error;
                     continue;
                 }
                 break;
             case 6:
-                if (key == "height") {
+                if (buffer == "height") {
                     if (Error error = parseDouble(value.height))
                         return error;
                     continue;
@@ -3409,28 +3347,27 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusDimensions(nonstd::optiona
 }
 
 Parser::Error::Type Parser::parseOctopusTextFrame(octopus::TextFrame &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'm':
-                    if (key == "mode") {
+                    if (buffer == "mode") {
                         if (Error error = parseOctopusTextFrameMode(value.mode))
                             return error;
                         continue;
                     }
                     break;
                 case 's':
-                    if (key == "size") {
+                    if (buffer == "size") {
                         if (Error error = parseNonstdOptionalOctopusDimensions(value.size))
                             return error;
                         continue;
@@ -3456,31 +3393,30 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextFrame(nonstd::optional
 }
 
 Parser::Error::Type Parser::parseOctopusTextOverflowPolicy(octopus::Text::OverflowPolicy &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 7) {
-        switch (str[7]) {
+    if (buffer.size() > 7) {
+        switch (buffer[7]) {
             case 'A':
-                if (str == "EXTEND_ALL") {
+                if (buffer == "EXTEND_ALL") {
                     value = octopus::Text::OverflowPolicy::EXTEND_ALL;
                     return Error::OK; 
                 }
                 break;
             case 'F':
-                if (str == "NO_OVERFLOW") {
+                if (buffer == "NO_OVERFLOW") {
                     value = octopus::Text::OverflowPolicy::NO_OVERFLOW;
                     return Error::OK; 
                 }
                 break;
             case 'L':
-                if (str == "EXTEND_LINE") {
+                if (buffer == "EXTEND_LINE") {
                     value = octopus::Text::OverflowPolicy::EXTEND_LINE;
                     return Error::OK; 
                 }
                 break;
             case 'N':
-                if (str == "CLIP_LINE") {
+                if (buffer == "CLIP_LINE") {
                     value = octopus::Text::OverflowPolicy::CLIP_LINE;
                     return Error::OK; 
                 }
@@ -3491,25 +3427,24 @@ Parser::Error::Type Parser::parseOctopusTextOverflowPolicy(octopus::Text::Overfl
 }
 
 Parser::Error::Type Parser::parseOctopusTextVerticalAlign(octopus::Text::VerticalAlign &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 0) {
-        switch (str[0]) {
+    if (buffer.size() > 0) {
+        switch (buffer[0]) {
             case 'B':
-                if (str == "BOTTOM") {
+                if (buffer == "BOTTOM") {
                     value = octopus::Text::VerticalAlign::BOTTOM;
                     return Error::OK; 
                 }
                 break;
             case 'C':
-                if (str == "CENTER") {
+                if (buffer == "CENTER") {
                     value = octopus::Text::VerticalAlign::CENTER;
                     return Error::OK; 
                 }
                 break;
             case 'T':
-                if (str == "TOP") {
+                if (buffer == "TOP") {
                     value = octopus::Text::VerticalAlign::TOP;
                     return Error::OK; 
                 }
@@ -3520,77 +3455,76 @@ Parser::Error::Type Parser::parseOctopusTextVerticalAlign(octopus::Text::Vertica
 }
 
 Parser::Error::Type Parser::parseOctopusText(octopus::Text &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 3) {
-            switch (key[3]) {
+        if (buffer.size() > 3) {
+            switch (buffer[3]) {
                 case 'a':
-                    if (key == "defaultStyle") {
+                    if (buffer == "defaultStyle") {
                         if (Error error = parseOctopusTextStyle(value.defaultStyle))
                             return error;
                         continue;
                     }
                     break;
                 case 'e':
-                    if (key == "baselinePolicy") {
+                    if (buffer == "baselinePolicy") {
                         if (Error error = parseOctopusTextBaselinePolicy(value.baselinePolicy))
                             return error;
                         continue;
                     }
                     break;
                 case 'i':
-                    if (key == "horizontalAlign") {
+                    if (buffer == "horizontalAlign") {
                         if (Error error = parseOctopusTextHorizontalAlign(value.horizontalAlign))
                             return error;
                         continue;
                     }
                     break;
                 case 'l':
-                    if (key == "styles") {
+                    if (buffer == "styles") {
                         if (Error error = parseNonstdOptionalStdVectorOctopusStyleRange(value.styles))
                             return error;
                         continue;
                     }
                     break;
                 case 'm':
-                    if (key == "frame") {
+                    if (buffer == "frame") {
                         if (Error error = parseNonstdOptionalOctopusTextFrame(value.frame))
                             return error;
                         continue;
                     }
                     break;
                 case 'n':
-                    if (key == "transform") {
+                    if (buffer == "transform") {
                         if (Error error = parseDouble_6(value.transform))
                             return error;
                         continue;
                     }
                     break;
                 case 'r':
-                    if (key == "overflowPolicy") {
+                    if (buffer == "overflowPolicy") {
                         if (Error error = parseOctopusTextOverflowPolicy(value.overflowPolicy))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "verticalAlign") {
+                    if (buffer == "verticalAlign") {
                         if (Error error = parseOctopusTextVerticalAlign(value.verticalAlign))
                             return error;
                         continue;
                     }
                     break;
                 case 'u':
-                    if (key == "value") {
+                    if (buffer == "value") {
                         if (Error error = parseStdString(value.value))
                             return error;
                         continue;
@@ -3647,30 +3581,29 @@ Parser::Error::Type Parser::parseNonstdOptionalStdArrayDouble6(nonstd::optional<
 }
 
 Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::Values &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'b':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 5:
-                            if (key == "basis") {
+                            if (buffer == "basis") {
                                 if (Error error = parseNonstdOptionalOctopusEffectBasis(value.basis))
                                     return error;
                                 continue;
                             }
                             break;
                         case 9:
-                            if (key == "blendMode") {
+                            if (buffer == "blendMode") {
                                 if (Error error = parseNonstdOptionalOctopusBlendMode(value.blendMode))
                                     return error;
                                 continue;
@@ -3679,30 +3612,30 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                     }
                     break;
                 case 'c':
-                    if (key == "componentId") {
+                    if (buffer == "componentId") {
                         if (Error error = parseNonstdOptionalStdString(value.componentId))
                             return error;
                         continue;
                     }
                     break;
                 case 'd':
-                    if (key == "defaultStyle") {
+                    if (buffer == "defaultStyle") {
                         if (Error error = parseNonstdOptionalOctopusTextStyle(value.defaultStyle))
                             return error;
                         continue;
                     }
                     break;
                 case 'e':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 6:
-                            if (key == "effect") {
+                            if (buffer == "effect") {
                                 if (Error error = parseNonstdOptionalOctopusEffect(value.effect))
                                     return error;
                                 continue;
                             }
                             break;
                         case 7:
-                            if (key == "effects") {
+                            if (buffer == "effects") {
                                 if (Error error = parseNonstdOptionalStdVectorOctopusEffect(value.effects))
                                     return error;
                                 continue;
@@ -3711,44 +3644,44 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                     }
                     break;
                 case 'f':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "fill") {
+                            if (buffer == "fill") {
                                 if (Error error = parseNonstdOptionalOctopusFill(value.fill))
                                     return error;
                                 continue;
                             }
                             break;
                         case 5:
-                            if (key == "fills") {
+                            if (buffer == "fills") {
                                 if (Error error = parseNonstdOptionalStdVectorOctopusFill(value.fills))
                                     return error;
                                 continue;
                             }
                             break;
                         case 6:
-                            if (key == "filter") {
+                            if (buffer == "filter") {
                                 if (Error error = parseNonstdOptionalOctopusFilter(value.filter))
                                     return error;
                                 continue;
                             }
                             break;
                         case 7:
-                            if (key == "filters") {
+                            if (buffer == "filters") {
                                 if (Error error = parseNonstdOptionalStdVectorOctopusFilter(value.filters))
                                     return error;
                                 continue;
                             }
                             break;
                         case 8:
-                            if (key == "fillRule") {
+                            if (buffer == "fillRule") {
                                 if (Error error = parseNonstdOptionalOctopusShapeFillRule(value.fillRule))
                                     return error;
                                 continue;
                             }
                             break;
                         case 12:
-                            if (key == "featureScale") {
+                            if (buffer == "featureScale") {
                                 if (Error error = parseNonstdOptionalDouble(value.featureScale))
                                     return error;
                                 continue;
@@ -3757,16 +3690,16 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                     }
                     break;
                 case 'm':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 9:
-                            if (key == "maskBasis") {
+                            if (buffer == "maskBasis") {
                                 if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
                                     return error;
                                 continue;
                             }
                             break;
                         case 12:
-                            if (key == "maskChannels") {
+                            if (buffer == "maskChannels") {
                                 if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
                                     return error;
                                 continue;
@@ -3775,46 +3708,46 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                     }
                     break;
                 case 'n':
-                    if (key == "name") {
+                    if (buffer == "name") {
                         if (Error error = parseNonstdOptionalStdString(value.name))
                             return error;
                         continue;
                     }
                     break;
                 case 'o':
-                    if (key == "opacity") {
+                    if (buffer == "opacity") {
                         if (Error error = parseNonstdOptionalDouble(value.opacity))
                             return error;
                         continue;
                     }
                     break;
                 case 'p':
-                    if (key == "path") {
+                    if (buffer == "path") {
                         if (Error error = parseNonstdOptionalOctopusPath(value.path))
                             return error;
                         continue;
                     }
                     break;
                 case 's':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 5:
-                            if (key == "shape") {
+                            if (buffer == "shape") {
                                 if (Error error = parseNonstdOptionalOctopusShape(value.shape))
                                     return error;
                                 continue;
                             }
                             break;
                         case 6:
-                            switch (key[2]) {
+                            switch (buffer[2]) {
                                 case 'r':
-                                    if (key == "stroke") {
+                                    if (buffer == "stroke") {
                                         if (Error error = parseNonstdOptionalOctopusVectorStroke(value.stroke))
                                             return error;
                                         continue;
                                     }
                                     break;
                                 case 'y':
-                                    if (key == "styles") {
+                                    if (buffer == "styles") {
                                         if (Error error = parseNonstdOptionalStdVectorOctopusStyleRange(value.styles))
                                             return error;
                                         continue;
@@ -3823,8 +3756,8 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                             }
                             break;
                         case 7:
-                            if (key == "strokes") {
-                                if (Error error = parseNonstdOptionalStdVectorOctopusStroke(value.strokes))
+                            if (buffer == "strokes") {
+                                if (Error error = parseNonstdOptionalStdVectorOctopusShapeStroke(value.strokes))
                                     return error;
                                 continue;
                             }
@@ -3832,16 +3765,16 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                     }
                     break;
                 case 't':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "text") {
+                            if (buffer == "text") {
                                 if (Error error = parseNonstdOptionalOctopusText(value.text))
                                     return error;
                                 continue;
                             }
                             break;
                         case 9:
-                            if (key == "transform") {
+                            if (buffer == "transform") {
                                 if (Error error = parseNonstdOptionalStdArrayDouble6(value.transform))
                                     return error;
                                 continue;
@@ -3850,16 +3783,16 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                     }
                     break;
                 case 'v':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 5:
-                            if (key == "value") {
+                            if (buffer == "value") {
                                 if (Error error = parseNonstdOptionalStdString(value.value))
                                     return error;
                                 continue;
                             }
                             break;
                         case 7:
-                            if (key == "visible") {
+                            if (buffer == "visible") {
                                 if (Error error = parseNonstdOptionalBool(value.visible))
                                     return error;
                                 continue;
@@ -3878,39 +3811,38 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
 }
 
 Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange::Subject &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str.size() > 1) {
-        switch (str[1]) {
+    if (buffer.size() > 1) {
+        switch (buffer[1]) {
             case 'A':
-                if (str == "LAYER") {
+                if (buffer == "LAYER") {
                     value = octopus::LayerChange::Subject::LAYER;
                     return Error::OK; 
                 }
                 break;
             case 'E':
-                if (str == "TEXT") {
+                if (buffer == "TEXT") {
                     value = octopus::LayerChange::Subject::TEXT;
                     return Error::OK; 
                 }
                 break;
             case 'F':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 6:
-                        if (str == "EFFECT") {
+                        if (buffer == "EFFECT") {
                             value = octopus::LayerChange::Subject::EFFECT;
                             return Error::OK; 
                         }
                         break;
                     case 11:
-                        if (str == "EFFECT_FILL") {
+                        if (buffer == "EFFECT_FILL") {
                             value = octopus::LayerChange::Subject::EFFECT_FILL;
                             return Error::OK; 
                         }
                         break;
                     case 18:
-                        if (str == "EFFECT_FILL_FILTER") {
+                        if (buffer == "EFFECT_FILL_FILTER") {
                             value = octopus::LayerChange::Subject::EFFECT_FILL_FILTER;
                             return Error::OK; 
                         }
@@ -3918,21 +3850,21 @@ Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange:
                 }
                 break;
             case 'H':
-                if (str == "SHAPE") {
+                if (buffer == "SHAPE") {
                     value = octopus::LayerChange::Subject::SHAPE;
                     return Error::OK; 
                 }
                 break;
             case 'I':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 4:
-                        if (str == "FILL") {
+                        if (buffer == "FILL") {
                             value = octopus::LayerChange::Subject::FILL;
                             return Error::OK; 
                         }
                         break;
                     case 11:
-                        if (str == "FILL_FILTER") {
+                        if (buffer == "FILL_FILTER") {
                             value = octopus::LayerChange::Subject::FILL_FILTER;
                             return Error::OK; 
                         }
@@ -3940,21 +3872,21 @@ Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange:
                 }
                 break;
             case 'T':
-                switch (str.size()) {
+                switch (buffer.size()) {
                     case 6:
-                        if (str == "STROKE") {
+                        if (buffer == "STROKE") {
                             value = octopus::LayerChange::Subject::STROKE;
                             return Error::OK; 
                         }
                         break;
                     case 11:
-                        if (str == "STROKE_FILL") {
+                        if (buffer == "STROKE_FILL") {
                             value = octopus::LayerChange::Subject::STROKE_FILL;
                             return Error::OK; 
                         }
                         break;
                     case 18:
-                        if (str == "STROKE_FILL_FILTER") {
+                        if (buffer == "STROKE_FILL_FILTER") {
                             value = octopus::LayerChange::Subject::STROKE_FILL_FILTER;
                             return Error::OK; 
                         }
@@ -3967,48 +3899,47 @@ Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange:
 }
 
 Parser::Error::Type Parser::parseOctopusLayerChange(octopus::LayerChange &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 2:
-                if (key == "op") {
+                if (buffer == "op") {
                     if (Error error = parseOctopusLayerChangeOp(value.op))
                         return error;
                     continue;
                 }
                 break;
             case 5:
-                if (key == "index") {
+                if (buffer == "index") {
                     if (Error error = parseNonstdOptionalInt(value.index))
                         return error;
                     continue;
                 }
                 break;
             case 6:
-                if (key == "values") {
+                if (buffer == "values") {
                     if (Error error = parseOctopusLayerChangeValues(value.values))
                         return error;
                     continue;
                 }
                 break;
             case 7:
-                if (key == "subject") {
+                if (buffer == "subject") {
                     if (Error error = parseOctopusLayerChangeSubject(value.subject))
                         return error;
                     continue;
                 }
                 break;
             case 11:
-                if (key == "filterIndex") {
+                if (buffer == "filterIndex") {
                     if (Error error = parseNonstdOptionalInt(value.filterIndex))
                         return error;
                     continue;
@@ -4041,27 +3972,26 @@ Parser::Error::Type Parser::parseStdVectorOctopusLayerChange(std::vector<octopus
 }
 
 Parser::Error::Type Parser::parseOctopusOverride(octopus::Override &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        switch (key.size()) {
+        switch (buffer.size()) {
             case 6:
-                if (key == "target") {
+                if (buffer == "target") {
                     if (Error error = parseStdVectorStdString(value.target))
                         return error;
                     continue;
                 }
                 break;
             case 7:
-                if (key == "changes") {
+                if (buffer == "changes") {
                     if (Error error = parseStdVectorOctopusLayerChange(value.changes))
                         return error;
                     continue;
@@ -4103,26 +4033,25 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOverride(nonstd::
 }
 
 Parser::Error::Type Parser::parseOctopusLayerType(octopus::Layer::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (str.size()) {
+    switch (buffer.size()) {
         case 4:
-            if (str == "TEXT") {
+            if (buffer == "TEXT") {
                 value = octopus::Layer::Type::TEXT;
                 return Error::OK; 
             }
             break;
         case 5:
-            switch (str[0]) {
+            switch (buffer[0]) {
                 case 'G':
-                    if (str == "GROUP") {
+                    if (buffer == "GROUP") {
                         value = octopus::Layer::Type::GROUP;
                         return Error::OK; 
                     }
                     break;
                 case 'S':
-                    if (str == "SHAPE") {
+                    if (buffer == "SHAPE") {
                         value = octopus::Layer::Type::SHAPE;
                         return Error::OK; 
                     }
@@ -4130,19 +4059,19 @@ Parser::Error::Type Parser::parseOctopusLayerType(octopus::Layer::Type &value) {
             }
             break;
         case 10:
-            if (str == "MASK_GROUP") {
+            if (buffer == "MASK_GROUP") {
                 value = octopus::Layer::Type::MASK_GROUP;
                 return Error::OK; 
             }
             break;
         case 18:
-            if (str == "COMPONENT_INSTANCE") {
+            if (buffer == "COMPONENT_INSTANCE") {
                 value = octopus::Layer::Type::COMPONENT_INSTANCE;
                 return Error::OK; 
             }
             break;
         case 19:
-            if (str == "COMPONENT_REFERENCE") {
+            if (buffer == "COMPONENT_REFERENCE") {
                 value = octopus::Layer::Type::COMPONENT_REFERENCE;
                 return Error::OK; 
             }
@@ -4152,79 +4081,78 @@ Parser::Error::Type Parser::parseOctopusLayerType(octopus::Layer::Type &value) {
 }
 
 Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'b':
-                    if (key == "blendMode") {
+                    if (buffer == "blendMode") {
                         if (Error error = parseOctopusBlendMode(value.blendMode))
                             return error;
                         continue;
                     }
                     break;
                 case 'c':
-                    if (key == "componentId") {
+                    if (buffer == "componentId") {
                         if (Error error = parseNonstdOptionalStdString(value.componentId))
                             return error;
                         continue;
                     }
                     break;
                 case 'e':
-                    if (key == "effects") {
+                    if (buffer == "effects") {
                         if (Error error = parseStdVectorOctopusEffect(value.effects))
                             return error;
                         continue;
                     }
                     break;
                 case 'f':
-                    if (key == "featureScale") {
+                    if (buffer == "featureScale") {
                         if (Error error = parseNonstdOptionalDouble(value.featureScale))
                             return error;
                         continue;
                     }
                     break;
                 case 'i':
-                    if (key == "id") {
+                    if (buffer == "id") {
                         if (Error error = parseStdString(value.id))
                             return error;
                         continue;
                     }
                     break;
                 case 'l':
-                    if (key == "layers") {
+                    if (buffer == "layers") {
                         if (Error error = parseNonstdOptionalStdListOctopusLayer(value.layers))
                             return error;
                         continue;
                     }
                     break;
                 case 'm':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 4:
-                            if (key == "mask") {
+                            if (buffer == "mask") {
                                 if (Error error = parseNonstdOptionalPtrOctopusLayer(value.mask))
                                     return error;
                                 continue;
                             }
                             break;
                         case 9:
-                            if (key == "maskBasis") {
+                            if (buffer == "maskBasis") {
                                 if (Error error = parseNonstdOptionalOctopusMaskBasis(value.maskBasis))
                                     return error;
                                 continue;
                             }
                             break;
                         case 12:
-                            if (key == "maskChannels") {
+                            if (buffer == "maskChannels") {
                                 if (Error error = parseNonstdOptionalStdArrayDouble5(value.maskChannels))
                                     return error;
                                 continue;
@@ -4233,23 +4161,23 @@ Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
                     }
                     break;
                 case 'n':
-                    if (key == "name") {
+                    if (buffer == "name") {
                         if (Error error = parseStdString(value.name))
                             return error;
                         continue;
                     }
                     break;
                 case 'o':
-                    switch (key.size()) {
+                    switch (buffer.size()) {
                         case 7:
-                            if (key == "opacity") {
+                            if (buffer == "opacity") {
                                 if (Error error = parseDouble(value.opacity))
                                     return error;
                                 continue;
                             }
                             break;
                         case 9:
-                            if (key == "overrides") {
+                            if (buffer == "overrides") {
                                 if (Error error = parseNonstdOptionalStdVectorOctopusOverride(value.overrides))
                                     return error;
                                 continue;
@@ -4258,31 +4186,31 @@ Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
                     }
                     break;
                 case 's':
-                    if (key == "shape") {
+                    if (buffer == "shape") {
                         if (Error error = parseNonstdOptionalOctopusShape(value.shape))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key.size() > 1) {
-                        switch (key[1]) {
+                    if (buffer.size() > 1) {
+                        switch (buffer[1]) {
                             case 'e':
-                                if (key == "text") {
+                                if (buffer == "text") {
                                     if (Error error = parseNonstdOptionalOctopusText(value.text))
                                         return error;
                                     continue;
                                 }
                                 break;
                             case 'r':
-                                if (key == "transform") {
+                                if (buffer == "transform") {
                                     if (Error error = parseDouble_6(value.transform))
                                         return error;
                                     continue;
                                 }
                                 break;
                             case 'y':
-                                if (key == "type") {
+                                if (buffer == "type") {
                                     if (Error error = parseOctopusLayerType(value.type))
                                         return error;
                                     continue;
@@ -4292,7 +4220,7 @@ Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
                     }
                     break;
                 case 'v':
-                    if (key == "visible") {
+                    if (buffer == "visible") {
                         if (Error error = parseBool(value.visible))
                             return error;
                         continue;
@@ -4318,10 +4246,9 @@ Parser::Error::Type Parser::parseNonstdOptionalPtrOctopusLayer(nonstd::optional_
 }
 
 Parser::Error::Type Parser::parseOctopusOctopusType(octopus::Octopus::Type &value) {
-    std::string str;
-    if (Error::Type error = parseStdString(str))
+    if (Error::Type error = parseStdString(buffer))
         return error;
-    if (str == "OCTOPUS_COMPONENT") {
+    if (buffer == "OCTOPUS_COMPONENT") {
         value = octopus::Octopus::Type::OCTOPUS_COMPONENT;
         return Error::OK; 
     }
@@ -4329,49 +4256,48 @@ Parser::Error::Type Parser::parseOctopusOctopusType(octopus::Octopus::Type &valu
 }
 
 Parser::Error::Type Parser::parseOctopusOctopus(octopus::Octopus &value) {
-    std::string key;
     if (!matchSymbol('{'))
         return Error::TYPE_MISMATCH;
     int separatorCheck = -1;
     for (; !matchSymbol('}'); separatorCheck = matchSymbol(',')) {
         if (!separatorCheck)
             return Error::JSON_SYNTAX_ERROR;
-        if (Error::Type error = parseStdString(key))
+        if (Error::Type error = parseStdString(buffer))
             return error;
         if (!matchSymbol(':'))
             return Error::JSON_SYNTAX_ERROR;
-        if (key.size() > 0) {
-            switch (key[0]) {
+        if (buffer.size() > 0) {
+            switch (buffer[0]) {
                 case 'c':
-                    if (key == "content") {
+                    if (buffer == "content") {
                         if (Error error = parseNonstdOptionalPtrOctopusLayer(value.content))
                             return error;
                         continue;
                     }
                     break;
                 case 'd':
-                    if (key == "dimensions") {
+                    if (buffer == "dimensions") {
                         if (Error error = parseNonstdOptionalOctopusDimensions(value.dimensions))
                             return error;
                         continue;
                     }
                     break;
                 case 'i':
-                    if (key == "id") {
+                    if (buffer == "id") {
                         if (Error error = parseStdString(value.id))
                             return error;
                         continue;
                     }
                     break;
                 case 't':
-                    if (key == "type") {
+                    if (buffer == "type") {
                         if (Error error = parseOctopusOctopusType(value.type))
                             return error;
                         continue;
                     }
                     break;
                 case 'v':
-                    if (key == "version") {
+                    if (buffer == "version") {
                         if (Error error = parseStdString(value.version))
                             return error;
                         continue;
