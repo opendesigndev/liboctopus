@@ -3081,11 +3081,11 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusShape(nonstd::optional<oct
     return Error::OK;
 }
 
-Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStroke(nonstd::optional<octopus::VectorStroke> &value) {
+Parser::Error::Type Parser::parseNonstdOptionalOctopusShapeStroke(nonstd::optional<octopus::Shape::Stroke> &value) {
     skipWhitespace();
     if (cur[0] == 'n' && cur[1] == 'u' && cur[2] == 'l' && cur[3] == 'l' && !isAlphanumeric(cur[4]) && cur[4] != '_' && (cur += 4, true))
         value.reset();
-    else if (Error error = parseOctopusVectorStroke((value = octopus::VectorStroke()).value()))
+    else if (Error error = parseOctopusShapeStroke((value = octopus::Shape::Stroke()).value()))
         return error;
     return Error::OK;
 }
@@ -3741,7 +3741,7 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
                             switch (buffer[2]) {
                                 case 'r':
                                     if (buffer == "stroke") {
-                                        if (Error error = parseNonstdOptionalOctopusVectorStroke(value.stroke))
+                                        if (Error error = parseNonstdOptionalOctopusShapeStroke(value.stroke))
                                             return error;
                                         continue;
                                     }

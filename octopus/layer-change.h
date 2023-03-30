@@ -38,7 +38,7 @@ struct LayerChange {
 
     struct Values {
         nonstd::optional<Fill> fill;
-        nonstd::optional<VectorStroke> stroke;
+        nonstd::optional<Shape::Stroke> stroke;
         nonstd::optional<Effect> effect;
         nonstd::optional<Filter> filter;
         nonstd::optional<Shape> shape;
