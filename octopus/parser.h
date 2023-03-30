@@ -150,7 +150,7 @@ protected:
     Error::Type parseStdVectorOctopusShapeStroke(std::vector<octopus::Shape::Stroke> &value);
     Error::Type parseOctopusShape(octopus::Shape &value);
     Error::Type parseNonstdOptionalOctopusShape(nonstd::optional<octopus::Shape> &value);
-    Error::Type parseNonstdOptionalOctopusVectorStroke(nonstd::optional<octopus::VectorStroke> &value);
+    Error::Type parseNonstdOptionalOctopusShapeStroke(nonstd::optional<octopus::Shape::Stroke> &value);
     Error::Type parseOctopusStyleRangeRange(octopus::StyleRange::Range &value);
     Error::Type parseStdVectorOctopusStyleRangeRange(std::vector<octopus::StyleRange::Range> &value);
     Error::Type parseOctopusStyleRange(octopus::StyleRange &value);

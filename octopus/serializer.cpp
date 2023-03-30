@@ -1352,7 +1352,7 @@ Serializer::Error Serializer::serializeOctopusLayerChangeValues(const octopus::L
     if (value.stroke.has_value()) {
         if (prev) { json.push_back(','); }
         json += "\"" "stroke" "\":";
-        if (Error error = serializeOctopusVectorStroke(value.stroke.value()))
+        if (Error error = serializeOctopusShapeStroke(value.stroke.value()))
             return error;
         prev = true;
     }
