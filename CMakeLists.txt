@@ -32,6 +32,10 @@ set(LIBOCTOPUS_VALIDATOR_SOURCES
     "octopus/validator.h"
     "octopus/validator.cpp"
 )
+set(LIBOCTOPUS_FIXER_SOURCES
+    "octopus/fix-octopus.h"
+    "octopus/fix-octopus.cpp"
+)
 set(LIBOCTOPUS_JSON_SOURCES
     "octopus/parser.h"
     "octopus/parser.cpp"
@@ -45,7 +49,7 @@ set(LIBOCTOPUS_MANIFEST_JSON_SOURCES
     "octopus-manifest/serializer.cpp"
 )
 
-add_library(liboctopus ${LIBOCTOPUS_OCTOPUS_HEADERS} ${LIBOCTOPUS_MANIFEST_HEADERS} ${LIBOCTOPUS_VALIDATOR_SOURCES} ${LIBOCTOPUS_JSON_SOURCES} ${LIBOCTOPUS_MANIFEST_JSON_SOURCES})
+add_library(liboctopus ${LIBOCTOPUS_OCTOPUS_HEADERS} ${LIBOCTOPUS_MANIFEST_HEADERS} ${LIBOCTOPUS_VALIDATOR_SOURCES} ${LIBOCTOPUS_FIXER_SOURCES} ${LIBOCTOPUS_JSON_SOURCES} ${LIBOCTOPUS_MANIFEST_JSON_SOURCES})
 
 target_include_directories(liboctopus PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -55,5 +59,6 @@ target_include_directories(liboctopus PUBLIC
 source_group("Octopus structures" FILES ${LIBOCTOPUS_OCTOPUS_HEADERS})
 source_group("Manifest structures" FILES ${LIBOCTOPUS_MANIFEST_HEADERS})
 source_group("Octopus validator" FILES ${LIBOCTOPUS_VALIDATOR_SOURCES})
+source_group("Octopus fixer" FILES ${LIBOCTOPUS_FIXER_SOURCES})
 source_group("Octopus serialization" FILES ${LIBOCTOPUS_JSON_SOURCES})
 source_group("Manifest serialization" FILES ${LIBOCTOPUS_MANIFEST_JSON_SOURCES})

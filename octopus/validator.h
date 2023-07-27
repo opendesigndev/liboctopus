@@ -7,6 +7,6 @@
 
 namespace octopus {
 
-bool validate(const Octopus &document, std::set<std::string> &layerIdSet, std::string *errorMessagePtr = nullptr, const void **datapointPtr = nullptr);
+bool validate(Octopus &document, std::set<std::string> &layerIdSet, std::string *errorMessagePtr = nullptr, const void **datapointPtr = nullptr);
 
 }

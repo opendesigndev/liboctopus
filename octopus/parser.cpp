@@ -5,6 +5,34 @@
 #include <cstdlib>
 #include "parser.h"
 
+
+
+#include <vector>
+#include <cctype>
+#include <algorithm>
+
+inline int levenshtein(const std::string &a, const std::string &b) {
+    size_t n = b.size()+1, m = 1, k = 0;
+    while (m <= n)
+        m <<= 1;
+    std::vector<int> d(m--);
+    d[k] = 0;
+    for (size_t i = 0; i < b.size(); ++i)
+        ++k, d[k] = d[k-1]+1;
+    for (size_t i = 0; i < a.size(); ++i) {
+        int aEmpty = 1;
+        ++k, d[k&m] = d[(k-n)&m]+aEmpty;
+        for (size_t j = 0; j < b.size(); ++j) {
+            ++k, d[k&m] = std::min(std::min(
+                d[(k-1)&m]+1,
+                d[(k-n)&m]+aEmpty),
+                d[(k-n-1)&m]+!(toupper(a[i]) == toupper(b[j]))
+            );
+        }
+    }
+    return d[k&m];
+}
+
 #ifndef JSON_CPP_MAX_INTEGER
 #define JSON_CPP_MAX_INTEGER(T) ((T) ~(((T) ~(T) 0 <= (T) 0 ? -2 : 0)*((T) 1<<(8*sizeof(T)-2))))
 #endif
@@ -117,50 +145,6 @@ bool Parser::readHexQuad(int &value) {
     );
 }
 
-Parser::Error::Type Parser::unescape(char *codepoints) {
-    switch (++cur, *cur++) {
-        case '\0':
-            --cur;
-            return Error::UNEXPECTED_END_OF_FILE;
-        case 'B': case 'b': codepoints[0] = '\b'; break;
-        case 'F': case 'f': codepoints[0] = '\f'; break;
-        case 'N': case 'n': codepoints[0] = '\n'; break;
-        case 'R': case 'r': codepoints[0] = '\r'; break;
-        case 'T': case 't': codepoints[0] = '\t'; break;
-        case 'U': case 'u': {
-            unsigned long cp;
-            int wc;
-            if (!readHexQuad(wc))
-                return Error::JSON_SYNTAX_ERROR;
-            if ((wc&0xfc00) == 0xd800) {
-                if (!(cur[0] == '\\' && (cur[1] == 'u' || cur[1] == 'U')))
-                    return Error::UTF16_ENCODING_ERROR;
-                cp = (unsigned long) ((wc&0x03ff)<<10);
-                cur += 2;
-                if (!readHexQuad(wc))
-                    return Error::JSON_SYNTAX_ERROR;
-                if ((wc&0xfc00) != 0xdc00)
-                    return Error::UTF16_ENCODING_ERROR;
-                cp = 0x010000+(cp|(unsigned long) (wc&0x03ff));
-            } else
-                cp = (unsigned long) wc;
-            if (cp&0xffffff80) {
-                int len;
-                for (len = 1; cp>>(5*len+1) && len < 6; ++len);
-                codepoints[0] = (char) (0xff<<(8-len)|cp>>6*(len-1));
-                for (int i = 1; i < len; ++i)
-                    *++codepoints = (char) (0x80|(cp>>6*(len-i-1)&0x3f));
-            } else
-                codepoints[0] = (char) cp;
-            break;
-        }
-        default:
-            codepoints[0] = cur[-1];
-    }
-    codepoints[1] = '\0';
-    return Error::OK;
-}
-
 bool Parser::isAlphanumeric(char c) {
     switch (c) {
         case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I':
@@ -239,10 +223,46 @@ Parser::Error::Type Parser::parseStdString(std::string &value) {
     value.clear();
     while (*cur != '"') {
         if (*cur == '\\') {
-            char utfBuffer[8];
-            if (Error error = unescape(utfBuffer))
-                return error;
-            value += utfBuffer;
+            ++cur;
+            switch (*cur++) {
+                case '\0':
+                    --cur;
+                    return Error::UNEXPECTED_END_OF_FILE;
+                case 'B': case 'b': value.push_back('\b'); break;
+                case 'F': case 'f': value.push_back('\f'); break;
+                case 'N': case 'n': value.push_back('\n'); break;
+                case 'R': case 'r': value.push_back('\r'); break;
+                case 'T': case 't': value.push_back('\t'); break;
+                case 'U': case 'u': {
+                    unsigned long cp;
+                    int wc;
+                    if (!readHexQuad(wc))
+                        return Error::JSON_SYNTAX_ERROR;
+                    if ((wc&0xfc00) == 0xd800) {
+                        if (!(cur[0] == '\\' && (cur[1] == 'u' || cur[1] == 'U')))
+                            return Error::UTF16_ENCODING_ERROR;
+                        cp = (unsigned long) ((wc&0x03ff)<<10);
+                        cur += 2;
+                        if (!readHexQuad(wc))
+                            return Error::JSON_SYNTAX_ERROR;
+                        if ((wc&0xfc00) != 0xdc00)
+                            return Error::UTF16_ENCODING_ERROR;
+                        cp = 0x010000+(cp|(unsigned long) (wc&0x03ff));
+                    } else
+                        cp = (unsigned long) wc;
+                    if (cp&0xffffff80) {
+                        int len;
+                        for (len = 1; cp>>(5*len+1) && len < 6; ++len);
+                        value.push_back((char) (0xff<<(8-len)|cp>>6*(len-1)));
+                        for (int i = 1; i < len; ++i)
+                            value.push_back((char) (0x80|(cp>>6*(len-i-1)&0x3f)));
+                    } else
+                        value.push_back((char) cp);
+                    break;
+                }
+                default:
+                    value.push_back(cur[-1]);
+            }
             continue;
         }
         if (!*cur)
@@ -257,207 +277,63 @@ Parser::Error::Type Parser::parseStdString(std::string &value) {
 Parser::Error::Type Parser::parseOctopusBlendMode(octopus::BlendMode &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 2) {
-        switch (buffer[2]) {
-            case 'B':
-                if (buffer == "SUBTRACT") {
-                    value = octopus::BlendMode::SUBTRACT;
-                    return Error::OK; 
-                }
-                break;
-            case 'C':
-                if (buffer == "EXCLUSION") {
-                    value = octopus::BlendMode::EXCLUSION;
-                    return Error::OK; 
-                }
-                break;
-            case 'E':
-                switch (buffer.size()) {
-                    case 3:
-                        if (buffer == "HUE") {
-                            value = octopus::BlendMode::HUE;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 7:
-                        if (buffer == "OVERLAY") {
-                            value = octopus::BlendMode::OVERLAY;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'F':
-                switch (buffer[0]) {
-                    case 'D':
-                        if (buffer == "DIFFERENCE") {
-                            value = octopus::BlendMode::DIFFERENCE;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 'S':
-                        if (buffer == "SOFT_LIGHT") {
-                            value = octopus::BlendMode::SOFT_LIGHT;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'G':
-                switch (buffer.size()) {
-                    case 7:
-                        if (buffer == "LIGHTEN") {
-                            value = octopus::BlendMode::LIGHTEN;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 13:
-                        if (buffer == "LIGHTER_COLOR") {
-                            value = octopus::BlendMode::LIGHTER_COLOR;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'L':
-                switch (buffer.size()) {
-                    case 5:
-                        if (buffer == "COLOR") {
-                            value = octopus::BlendMode::COLOR;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 8:
-                        if (buffer == "MULTIPLY") {
-                            value = octopus::BlendMode::MULTIPLY;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 10:
-                        if (buffer == "COLOR_BURN") {
-                            value = octopus::BlendMode::COLOR_BURN;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 11:
-                        if (buffer == "COLOR_DODGE") {
-                            value = octopus::BlendMode::COLOR_DODGE;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'M':
-                if (buffer == "LUMINOSITY") {
-                    value = octopus::BlendMode::LUMINOSITY;
-                    return Error::OK; 
-                }
-                break;
-            case 'N':
-                if (buffer.size() > 7) {
-                    switch (buffer[7]) {
-                        case 'B':
-                            if (buffer == "LINEAR_BURN") {
-                                value = octopus::BlendMode::LINEAR_BURN;
-                                return Error::OK; 
-                            }
-                            break;
-                        case 'D':
-                            if (buffer == "LINEAR_DODGE") {
-                                value = octopus::BlendMode::LINEAR_DODGE;
-                                return Error::OK; 
-                            }
-                            break;
-                        case 'H':
-                            if (buffer == "PIN_LIGHT") {
-                                value = octopus::BlendMode::PIN_LIGHT;
-                                return Error::OK; 
-                            }
-                            break;
-                        case 'L':
-                            if (buffer == "LINEAR_LIGHT") {
-                                value = octopus::BlendMode::LINEAR_LIGHT;
-                                return Error::OK; 
-                            }
-                            break;
-                    }
-                }
-                break;
-            case 'R':
-                switch (buffer.size()) {
-                    case 6:
-                        switch (buffer[0]) {
-                            case 'D':
-                                if (buffer == "DARKEN") {
-                                    value = octopus::BlendMode::DARKEN;
-                                    return Error::OK; 
-                                }
-                                break;
-                            case 'N':
-                                if (buffer == "NORMAL") {
-                                    value = octopus::BlendMode::NORMAL;
-                                    return Error::OK; 
-                                }
-                                break;
-                            case 'S':
-                                if (buffer == "SCREEN") {
-                                    value = octopus::BlendMode::SCREEN;
-                                    return Error::OK; 
-                                }
-                                break;
-                        }
-                        break;
-                    case 8:
-                        if (buffer == "HARD_MIX") {
-                            value = octopus::BlendMode::HARD_MIX;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 10:
-                        if (buffer == "HARD_LIGHT") {
-                            value = octopus::BlendMode::HARD_LIGHT;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 12:
-                        if (buffer == "DARKER_COLOR") {
-                            value = octopus::BlendMode::DARKER_COLOR;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'S':
-                if (buffer == "PASS_THROUGH") {
-                    value = octopus::BlendMode::PASS_THROUGH;
-                    return Error::OK; 
-                }
-                break;
-            case 'T':
-                if (buffer == "SATURATION") {
-                    value = octopus::BlendMode::SATURATION;
-                    return Error::OK; 
-                }
-                break;
-            case 'V':
-                switch (buffer.size()) {
-                    case 6:
-                        if (buffer == "DIVIDE") {
-                            value = octopus::BlendMode::DIVIDE;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 11:
-                        if (buffer == "VIVID_LIGHT") {
-                            value = octopus::BlendMode::VIVID_LIGHT;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "NORMAL");
+    if (curDistance < bestDistance) value = octopus::BlendMode::NORMAL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PASS_THROUGH");
+    if (curDistance < bestDistance) value = octopus::BlendMode::PASS_THROUGH, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COLOR");
+    if (curDistance < bestDistance) value = octopus::BlendMode::COLOR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COLOR_BURN");
+    if (curDistance < bestDistance) value = octopus::BlendMode::COLOR_BURN, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COLOR_DODGE");
+    if (curDistance < bestDistance) value = octopus::BlendMode::COLOR_DODGE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DARKEN");
+    if (curDistance < bestDistance) value = octopus::BlendMode::DARKEN, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DARKER_COLOR");
+    if (curDistance < bestDistance) value = octopus::BlendMode::DARKER_COLOR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DIFFERENCE");
+    if (curDistance < bestDistance) value = octopus::BlendMode::DIFFERENCE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DIVIDE");
+    if (curDistance < bestDistance) value = octopus::BlendMode::DIVIDE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EXCLUSION");
+    if (curDistance < bestDistance) value = octopus::BlendMode::EXCLUSION, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "HARD_LIGHT");
+    if (curDistance < bestDistance) value = octopus::BlendMode::HARD_LIGHT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "HARD_MIX");
+    if (curDistance < bestDistance) value = octopus::BlendMode::HARD_MIX, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "HUE");
+    if (curDistance < bestDistance) value = octopus::BlendMode::HUE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LIGHTEN");
+    if (curDistance < bestDistance) value = octopus::BlendMode::LIGHTEN, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LIGHTER_COLOR");
+    if (curDistance < bestDistance) value = octopus::BlendMode::LIGHTER_COLOR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LINEAR_BURN");
+    if (curDistance < bestDistance) value = octopus::BlendMode::LINEAR_BURN, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LINEAR_DODGE");
+    if (curDistance < bestDistance) value = octopus::BlendMode::LINEAR_DODGE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LINEAR_LIGHT");
+    if (curDistance < bestDistance) value = octopus::BlendMode::LINEAR_LIGHT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LUMINOSITY");
+    if (curDistance < bestDistance) value = octopus::BlendMode::LUMINOSITY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "MULTIPLY");
+    if (curDistance < bestDistance) value = octopus::BlendMode::MULTIPLY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "OVERLAY");
+    if (curDistance < bestDistance) value = octopus::BlendMode::OVERLAY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PIN_LIGHT");
+    if (curDistance < bestDistance) value = octopus::BlendMode::PIN_LIGHT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SATURATION");
+    if (curDistance < bestDistance) value = octopus::BlendMode::SATURATION, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SCREEN");
+    if (curDistance < bestDistance) value = octopus::BlendMode::SCREEN, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SOFT_LIGHT");
+    if (curDistance < bestDistance) value = octopus::BlendMode::SOFT_LIGHT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SUBTRACT");
+    if (curDistance < bestDistance) value = octopus::BlendMode::SUBTRACT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "VIVID_LIGHT");
+    if (curDistance < bestDistance) value = octopus::BlendMode::VIVID_LIGHT, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalStdString(nonstd::optional<std::string> &value) {
@@ -746,39 +622,19 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusColorAdjustment(nonstd::op
 Parser::Error::Type Parser::parseOctopusFilterType(octopus::Filter::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 18:
-            if (buffer == "OPACITY_MULTIPLIER") {
-                value = octopus::Filter::Type::OPACITY_MULTIPLIER;
-                return Error::OK; 
-            }
-            break;
-        case 22:
-            if (buffer == "FIGMA_COLOR_ADJUSTMENT") {
-                value = octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT;
-                return Error::OK; 
-            }
-            break;
-        case 23:
-            if (buffer == "SKETCH_COLOR_ADJUSTMENT") {
-                value = octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT;
-                return Error::OK; 
-            }
-            break;
-        case 24:
-            if (buffer == "XD_BRIGHTNESS_ADJUSTMENT") {
-                value = octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT;
-                return Error::OK; 
-            }
-            break;
-        case 28:
-            if (buffer == "SKETCH_BRIGHTNESS_ADJUSTMENT") {
-                value = octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "OPACITY_MULTIPLIER");
+    if (curDistance < bestDistance) value = octopus::Filter::Type::OPACITY_MULTIPLIER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "XD_BRIGHTNESS_ADJUSTMENT");
+    if (curDistance < bestDistance) value = octopus::Filter::Type::XD_BRIGHTNESS_ADJUSTMENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SKETCH_BRIGHTNESS_ADJUSTMENT");
+    if (curDistance < bestDistance) value = octopus::Filter::Type::SKETCH_BRIGHTNESS_ADJUSTMENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SKETCH_COLOR_ADJUSTMENT");
+    if (curDistance < bestDistance) value = octopus::Filter::Type::SKETCH_COLOR_ADJUSTMENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FIGMA_COLOR_ADJUSTMENT");
+    if (curDistance < bestDistance) value = octopus::Filter::Type::FIGMA_COLOR_ADJUSTMENT, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseBool(bool &value) {
@@ -879,61 +735,31 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusFilter(nonstd::op
 Parser::Error::Type Parser::parseOctopusGradientType(octopus::Gradient::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'A':
-                if (buffer == "ANGULAR") {
-                    value = octopus::Gradient::Type::ANGULAR;
-                    return Error::OK; 
-                }
-                break;
-            case 'D':
-                if (buffer == "DIAMOND") {
-                    value = octopus::Gradient::Type::DIAMOND;
-                    return Error::OK; 
-                }
-                break;
-            case 'L':
-                if (buffer == "LINEAR") {
-                    value = octopus::Gradient::Type::LINEAR;
-                    return Error::OK; 
-                }
-                break;
-            case 'R':
-                if (buffer == "RADIAL") {
-                    value = octopus::Gradient::Type::RADIAL;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "LINEAR");
+    if (curDistance < bestDistance) value = octopus::Gradient::Type::LINEAR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "RADIAL");
+    if (curDistance < bestDistance) value = octopus::Gradient::Type::RADIAL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ANGULAR");
+    if (curDistance < bestDistance) value = octopus::Gradient::Type::ANGULAR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DIAMOND");
+    if (curDistance < bestDistance) value = octopus::Gradient::Type::DIAMOND, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusGradientInterpolation(octopus::Gradient::Interpolation &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 5:
-            if (buffer == "POWER") {
-                value = octopus::Gradient::Interpolation::POWER;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "LINEAR") {
-                value = octopus::Gradient::Interpolation::LINEAR;
-                return Error::OK; 
-            }
-            break;
-        case 13:
-            if (buffer == "REVERSE_POWER") {
-                value = octopus::Gradient::Interpolation::REVERSE_POWER;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "LINEAR");
+    if (curDistance < bestDistance) value = octopus::Gradient::Interpolation::LINEAR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "POWER");
+    if (curDistance < bestDistance) value = octopus::Gradient::Interpolation::POWER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "REVERSE_POWER");
+    if (curDistance < bestDistance) value = octopus::Gradient::Interpolation::REVERSE_POWER, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusGradientColorStop(octopus::Gradient::ColorStop &value) {
@@ -1049,21 +875,13 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusGradient(nonstd::optional<
 Parser::Error::Type Parser::parseOctopusImageRefType(octopus::ImageRef::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            if (buffer == "PATH") {
-                value = octopus::ImageRef::Type::PATH;
-                return Error::OK; 
-            }
-            break;
-        case 12:
-            if (buffer == "RESOURCE_REF") {
-                value = octopus::ImageRef::Type::RESOURCE_REF;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "PATH");
+    if (curDistance < bestDistance) value = octopus::ImageRef::Type::PATH, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "RESOURCE_REF");
+    if (curDistance < bestDistance) value = octopus::ImageRef::Type::RESOURCE_REF, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusImageRef(octopus::ImageRef &value) {
@@ -1220,69 +1038,33 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusImage(nonstd::optional<oct
 Parser::Error::Type Parser::parseOctopusFillPositioningLayout(octopus::Fill::Positioning::Layout &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 3:
-            if (buffer == "FIT") {
-                value = octopus::Fill::Positioning::Layout::FIT;
-                return Error::OK; 
-            }
-            break;
-        case 4:
-            switch (buffer[0]) {
-                case 'F':
-                    if (buffer == "FILL") {
-                        value = octopus::Fill::Positioning::Layout::FILL;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'T':
-                    if (buffer == "TILE") {
-                        value = octopus::Fill::Positioning::Layout::TILE;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 7:
-            if (buffer == "STRETCH") {
-                value = octopus::Fill::Positioning::Layout::STRETCH;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "STRETCH");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Layout::STRETCH, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FILL");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Layout::FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FIT");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Layout::FIT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "TILE");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Layout::TILE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusFillPositioningOrigin(octopus::Fill::Positioning::Origin &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 5:
-            if (buffer == "LAYER") {
-                value = octopus::Fill::Positioning::Origin::LAYER;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "PARENT") {
-                value = octopus::Fill::Positioning::Origin::PARENT;
-                return Error::OK; 
-            }
-            break;
-        case 8:
-            if (buffer == "ARTBOARD") {
-                value = octopus::Fill::Positioning::Origin::ARTBOARD;
-                return Error::OK; 
-            }
-            break;
-        case 9:
-            if (buffer == "COMPONENT") {
-                value = octopus::Fill::Positioning::Origin::COMPONENT;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "LAYER");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Origin::LAYER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PARENT");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Origin::PARENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COMPONENT");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Origin::COMPONENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ARTBOARD");
+    if (curDistance < bestDistance) value = octopus::Fill::Positioning::Origin::ARTBOARD, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseDouble_6(double value[6]) {
@@ -1362,29 +1144,15 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusFillPositioning(nonstd::op
 Parser::Error::Type Parser::parseOctopusFillType(octopus::Fill::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'C':
-                if (buffer == "COLOR") {
-                    value = octopus::Fill::Type::COLOR;
-                    return Error::OK; 
-                }
-                break;
-            case 'G':
-                if (buffer == "GRADIENT") {
-                    value = octopus::Fill::Type::GRADIENT;
-                    return Error::OK; 
-                }
-                break;
-            case 'I':
-                if (buffer == "IMAGE") {
-                    value = octopus::Fill::Type::IMAGE;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "COLOR");
+    if (curDistance < bestDistance) value = octopus::Fill::Type::COLOR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "GRADIENT");
+    if (curDistance < bestDistance) value = octopus::Fill::Type::GRADIENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "IMAGE");
+    if (curDistance < bestDistance) value = octopus::Fill::Type::IMAGE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusFill(octopus::Fill &value) {
@@ -1478,105 +1246,43 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusFill(nonstd::optional<octo
 Parser::Error::Type Parser::parseOctopusEffectType(octopus::Effect::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            if (buffer == "BLUR") {
-                value = octopus::Effect::Type::BLUR;
-                return Error::OK; 
-            }
-            break;
-        case 5:
-            if (buffer == "OTHER") {
-                value = octopus::Effect::Type::OTHER;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "STROKE") {
-                value = octopus::Effect::Type::STROKE;
-                return Error::OK; 
-            }
-            break;
-        case 7:
-            if (buffer == "OVERLAY") {
-                value = octopus::Effect::Type::OVERLAY;
-                return Error::OK; 
-            }
-            break;
-        case 10:
-            switch (buffer[0]) {
-                case 'I':
-                    if (buffer == "INNER_GLOW") {
-                        value = octopus::Effect::Type::INNER_GLOW;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'O':
-                    if (buffer == "OUTER_GLOW") {
-                        value = octopus::Effect::Type::OUTER_GLOW;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 11:
-            if (buffer == "DROP_SHADOW") {
-                value = octopus::Effect::Type::DROP_SHADOW;
-                return Error::OK; 
-            }
-            break;
-        case 12:
-            switch (buffer[0]) {
-                case 'B':
-                    if (buffer == "BOUNDED_BLUR") {
-                        value = octopus::Effect::Type::BOUNDED_BLUR;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'I':
-                    if (buffer == "INNER_SHADOW") {
-                        value = octopus::Effect::Type::INNER_SHADOW;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 13:
-            if (buffer == "GAUSSIAN_BLUR") {
-                value = octopus::Effect::Type::GAUSSIAN_BLUR;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "OVERLAY");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::OVERLAY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STROKE");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::STROKE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DROP_SHADOW");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::DROP_SHADOW, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "INNER_SHADOW");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::INNER_SHADOW, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "OUTER_GLOW");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::OUTER_GLOW, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "INNER_GLOW");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::INNER_GLOW, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "GAUSSIAN_BLUR");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::GAUSSIAN_BLUR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BOUNDED_BLUR");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::BOUNDED_BLUR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BLUR");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::BLUR, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "OTHER");
+    if (curDistance < bestDistance) value = octopus::Effect::Type::OTHER, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusStrokePosition(octopus::Stroke::Position &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'C':
-                if (buffer == "CENTER") {
-                    value = octopus::Stroke::Position::CENTER;
-                    return Error::OK; 
-                }
-                break;
-            case 'I':
-                if (buffer == "INSIDE") {
-                    value = octopus::Stroke::Position::INSIDE;
-                    return Error::OK; 
-                }
-                break;
-            case 'O':
-                if (buffer == "OUTSIDE") {
-                    value = octopus::Stroke::Position::OUTSIDE;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "OUTSIDE");
+    if (curDistance < bestDistance) value = octopus::Stroke::Position::OUTSIDE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "CENTER");
+    if (curDistance < bestDistance) value = octopus::Stroke::Position::CENTER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "INSIDE");
+    if (curDistance < bestDistance) value = octopus::Stroke::Position::INSIDE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusStroke(octopus::Stroke &value) {
@@ -1633,43 +1339,19 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusStroke(nonstd::optional<oc
 Parser::Error::Type Parser::parseOctopusEffectBasis(octopus::EffectBasis &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            switch (buffer[0]) {
-                case 'B':
-                    if (buffer == "BODY") {
-                        value = octopus::EffectBasis::BODY;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'F':
-                    if (buffer == "FILL") {
-                        value = octopus::EffectBasis::FILL;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 10:
-            if (buffer == "BACKGROUND") {
-                value = octopus::EffectBasis::BACKGROUND;
-                return Error::OK; 
-            }
-            break;
-        case 16:
-            if (buffer == "BODY_AND_STROKES") {
-                value = octopus::EffectBasis::BODY_AND_STROKES;
-                return Error::OK; 
-            }
-            break;
-        case 17:
-            if (buffer == "LAYER_AND_EFFECTS") {
-                value = octopus::EffectBasis::LAYER_AND_EFFECTS;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "BODY");
+    if (curDistance < bestDistance) value = octopus::EffectBasis::BODY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BODY_AND_STROKES");
+    if (curDistance < bestDistance) value = octopus::EffectBasis::BODY_AND_STROKES, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FILL");
+    if (curDistance < bestDistance) value = octopus::EffectBasis::FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LAYER_AND_EFFECTS");
+    if (curDistance < bestDistance) value = octopus::EffectBasis::LAYER_AND_EFFECTS, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BACKGROUND");
+    if (curDistance < bestDistance) value = octopus::EffectBasis::BACKGROUND, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusEffect(octopus::Effect &value) {
@@ -1819,53 +1501,21 @@ Parser::Error::Type Parser::parseNonstdOptionalStdListOctopusLayer(nonstd::optio
 Parser::Error::Type Parser::parseOctopusMaskBasis(octopus::MaskBasis &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            switch (buffer[0]) {
-                case 'B':
-                    if (buffer == "BODY") {
-                        value = octopus::MaskBasis::BODY;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'F':
-                    if (buffer == "FILL") {
-                        value = octopus::MaskBasis::FILL;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 5:
-            if (buffer == "SOLID") {
-                value = octopus::MaskBasis::SOLID;
-                return Error::OK; 
-            }
-            break;
-        case 10:
-            switch (buffer[0]) {
-                case 'B':
-                    if (buffer == "BODY_EMBED") {
-                        value = octopus::MaskBasis::BODY_EMBED;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'F':
-                    if (buffer == "FILL_EMBED") {
-                        value = octopus::MaskBasis::FILL_EMBED;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 17:
-            if (buffer == "LAYER_AND_EFFECTS") {
-                value = octopus::MaskBasis::LAYER_AND_EFFECTS;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "SOLID");
+    if (curDistance < bestDistance) value = octopus::MaskBasis::SOLID, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BODY");
+    if (curDistance < bestDistance) value = octopus::MaskBasis::BODY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BODY_EMBED");
+    if (curDistance < bestDistance) value = octopus::MaskBasis::BODY_EMBED, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FILL");
+    if (curDistance < bestDistance) value = octopus::MaskBasis::FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FILL_EMBED");
+    if (curDistance < bestDistance) value = octopus::MaskBasis::FILL_EMBED, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LAYER_AND_EFFECTS");
+    if (curDistance < bestDistance) value = octopus::MaskBasis::LAYER_AND_EFFECTS, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusMaskBasis(nonstd::optional<octopus::MaskBasis> &value) {
@@ -1928,35 +1578,17 @@ Parser::Error::Type Parser::parseStdVectorStdString(std::vector<std::string> &va
 Parser::Error::Type Parser::parseOctopusLayerChangeOp(octopus::LayerChange::Op &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 2) {
-        switch (buffer[2]) {
-            case 'M':
-                if (buffer == "REMOVE") {
-                    value = octopus::LayerChange::Op::REMOVE;
-                    return Error::OK; 
-                }
-                break;
-            case 'O':
-                if (buffer == "PROPERTY_CHANGE") {
-                    value = octopus::LayerChange::Op::PROPERTY_CHANGE;
-                    return Error::OK; 
-                }
-                break;
-            case 'P':
-                if (buffer == "REPLACE") {
-                    value = octopus::LayerChange::Op::REPLACE;
-                    return Error::OK; 
-                }
-                break;
-            case 'S':
-                if (buffer == "INSERT") {
-                    value = octopus::LayerChange::Op::INSERT;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "PROPERTY_CHANGE");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Op::PROPERTY_CHANGE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "INSERT");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Op::INSERT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "REPLACE");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Op::REPLACE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "REMOVE");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Op::REMOVE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseInt(int &value) {
@@ -2113,27 +1745,15 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorDouble(nonstd::optional<
 Parser::Error::Type Parser::parseOctopusVectorStrokeLineCap(octopus::VectorStroke::LineCap &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            if (buffer == "BUTT") {
-                value = octopus::VectorStroke::LineCap::BUTT;
-                return Error::OK; 
-            }
-            break;
-        case 5:
-            if (buffer == "ROUND") {
-                value = octopus::VectorStroke::LineCap::ROUND;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "SQUARE") {
-                value = octopus::VectorStroke::LineCap::SQUARE;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "BUTT");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::LineCap::BUTT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ROUND");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::LineCap::ROUND, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SQUARE");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::LineCap::SQUARE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineCap(nonstd::optional<octopus::VectorStroke::LineCap> &value) {
@@ -2148,29 +1768,15 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineCap(nonstd
 Parser::Error::Type Parser::parseOctopusVectorStrokeLineJoin(octopus::VectorStroke::LineJoin &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'B':
-                if (buffer == "BEVEL") {
-                    value = octopus::VectorStroke::LineJoin::BEVEL;
-                    return Error::OK; 
-                }
-                break;
-            case 'M':
-                if (buffer == "MITER") {
-                    value = octopus::VectorStroke::LineJoin::MITER;
-                    return Error::OK; 
-                }
-                break;
-            case 'R':
-                if (buffer == "ROUND") {
-                    value = octopus::VectorStroke::LineJoin::ROUND;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "MITER");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::LineJoin::MITER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ROUND");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::LineJoin::ROUND, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BEVEL");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::LineJoin::BEVEL, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineJoin(nonstd::optional<octopus::VectorStroke::LineJoin> &value) {
@@ -2185,29 +1791,15 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeLineJoin(nonst
 Parser::Error::Type Parser::parseOctopusVectorStrokeStyle(octopus::VectorStroke::Style &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 2) {
-        switch (buffer[2]) {
-            case 'L':
-                if (buffer == "SOLID") {
-                    value = octopus::VectorStroke::Style::SOLID;
-                    return Error::OK; 
-                }
-                break;
-            case 'S':
-                if (buffer == "DASHED") {
-                    value = octopus::VectorStroke::Style::DASHED;
-                    return Error::OK; 
-                }
-                break;
-            case 'T':
-                if (buffer == "DOTTED") {
-                    value = octopus::VectorStroke::Style::DOTTED;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "SOLID");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::Style::SOLID, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DASHED");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::Style::DASHED, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DOTTED");
+    if (curDistance < bestDistance) value = octopus::VectorStroke::Style::DOTTED, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusVectorStrokeStyle(nonstd::optional<octopus::VectorStroke::Style> &value) {
@@ -2410,27 +2002,15 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOpenTypeFeature(n
 Parser::Error::Type Parser::parseOctopusTextStyleLigatures(octopus::TextStyle::Ligatures &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 3:
-            if (buffer == "ALL") {
-                value = octopus::TextStyle::Ligatures::ALL;
-                return Error::OK; 
-            }
-            break;
-        case 4:
-            if (buffer == "NONE") {
-                value = octopus::TextStyle::Ligatures::NONE;
-                return Error::OK; 
-            }
-            break;
-        case 8:
-            if (buffer == "STANDARD") {
-                value = octopus::TextStyle::Ligatures::STANDARD;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "NONE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::Ligatures::NONE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STANDARD");
+    if (curDistance < bestDistance) value = octopus::TextStyle::Ligatures::STANDARD, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ALL");
+    if (curDistance < bestDistance) value = octopus::TextStyle::Ligatures::ALL, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLigatures(nonstd::optional<octopus::TextStyle::Ligatures> &value) {
@@ -2445,29 +2025,15 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLigatures(nonstd:
 Parser::Error::Type Parser::parseOctopusTextStyleUnderline(octopus::TextStyle::Underline &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'D':
-                if (buffer == "DOUBLE") {
-                    value = octopus::TextStyle::Underline::DOUBLE;
-                    return Error::OK; 
-                }
-                break;
-            case 'N':
-                if (buffer == "NONE") {
-                    value = octopus::TextStyle::Underline::NONE;
-                    return Error::OK; 
-                }
-                break;
-            case 'S':
-                if (buffer == "SINGLE") {
-                    value = octopus::TextStyle::Underline::SINGLE;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "NONE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::Underline::NONE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SINGLE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::Underline::SINGLE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "DOUBLE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::Underline::DOUBLE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleUnderline(nonstd::optional<octopus::TextStyle::Underline> &value) {
@@ -2482,41 +2048,19 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleUnderline(nonstd:
 Parser::Error::Type Parser::parseOctopusTextStyleLetterCase(octopus::TextStyle::LetterCase &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'L':
-                if (buffer == "LOWERCASE") {
-                    value = octopus::TextStyle::LetterCase::LOWERCASE;
-                    return Error::OK; 
-                }
-                break;
-            case 'N':
-                if (buffer == "NONE") {
-                    value = octopus::TextStyle::LetterCase::NONE;
-                    return Error::OK; 
-                }
-                break;
-            case 'S':
-                if (buffer == "SMALL_CAPS") {
-                    value = octopus::TextStyle::LetterCase::SMALL_CAPS;
-                    return Error::OK; 
-                }
-                break;
-            case 'T':
-                if (buffer == "TITLE_CASE") {
-                    value = octopus::TextStyle::LetterCase::TITLE_CASE;
-                    return Error::OK; 
-                }
-                break;
-            case 'U':
-                if (buffer == "UPPERCASE") {
-                    value = octopus::TextStyle::LetterCase::UPPERCASE;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "NONE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::LetterCase::NONE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "UPPERCASE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::LetterCase::UPPERCASE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "LOWERCASE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::LetterCase::LOWERCASE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SMALL_CAPS");
+    if (curDistance < bestDistance) value = octopus::TextStyle::LetterCase::SMALL_CAPS, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "TITLE_CASE");
+    if (curDistance < bestDistance) value = octopus::TextStyle::LetterCase::TITLE_CASE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusTextStyleLetterCase(nonstd::optional<octopus::TextStyle::LetterCase> &value) {
@@ -2688,23 +2232,13 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusFilter(nonstd::optional<oc
 Parser::Error::Type Parser::parseOctopusShapeFillRule(octopus::Shape::FillRule &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'E':
-                if (buffer == "EVEN_ODD") {
-                    value = octopus::Shape::FillRule::EVEN_ODD;
-                    return Error::OK; 
-                }
-                break;
-            case 'N':
-                if (buffer == "NON_ZERO") {
-                    value = octopus::Shape::FillRule::NON_ZERO;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "EVEN_ODD");
+    if (curDistance < bestDistance) value = octopus::Shape::FillRule::EVEN_ODD, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "NON_ZERO");
+    if (curDistance < bestDistance) value = octopus::Shape::FillRule::NON_ZERO, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusShapeFillRule(nonstd::optional<octopus::Shape::FillRule> &value) {
@@ -2719,33 +2253,17 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusShapeFillRule(nonstd::opti
 Parser::Error::Type Parser::parseOctopusPathOp(octopus::Path::Op &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 5:
-            if (buffer == "UNION") {
-                value = octopus::Path::Op::UNION;
-                return Error::OK; 
-            }
-            break;
-        case 7:
-            if (buffer == "EXCLUDE") {
-                value = octopus::Path::Op::EXCLUDE;
-                return Error::OK; 
-            }
-            break;
-        case 8:
-            if (buffer == "SUBTRACT") {
-                value = octopus::Path::Op::SUBTRACT;
-                return Error::OK; 
-            }
-            break;
-        case 9:
-            if (buffer == "INTERSECT") {
-                value = octopus::Path::Op::INTERSECT;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "UNION");
+    if (curDistance < bestDistance) value = octopus::Path::Op::UNION, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "INTERSECT");
+    if (curDistance < bestDistance) value = octopus::Path::Op::INTERSECT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SUBTRACT");
+    if (curDistance < bestDistance) value = octopus::Path::Op::SUBTRACT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EXCLUDE");
+    if (curDistance < bestDistance) value = octopus::Path::Op::EXCLUDE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseNonstdOptionalOctopusPathOp(nonstd::optional<octopus::Path::Op> &value) {
@@ -2760,27 +2278,15 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusPathOp(nonstd::optional<oc
 Parser::Error::Type Parser::parseOctopusPathType(octopus::Path::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            if (buffer == "PATH") {
-                value = octopus::Path::Type::PATH;
-                return Error::OK; 
-            }
-            break;
-        case 8:
-            if (buffer == "COMPOUND") {
-                value = octopus::Path::Type::COMPOUND;
-                return Error::OK; 
-            }
-            break;
-        case 9:
-            if (buffer == "RECTANGLE") {
-                value = octopus::Path::Type::RECTANGLE;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "PATH");
+    if (curDistance < bestDistance) value = octopus::Path::Type::PATH, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "RECTANGLE");
+    if (curDistance < bestDistance) value = octopus::Path::Type::RECTANGLE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COMPOUND");
+    if (curDistance < bestDistance) value = octopus::Path::Type::COMPOUND, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseStdVectorOctopusPath(std::vector<octopus::Path> &value) {
@@ -3238,91 +2744,47 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusShapeStroke(nonst
 Parser::Error::Type Parser::parseOctopusTextBaselinePolicy(octopus::Text::BaselinePolicy &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 3:
-            if (buffer == "SET") {
-                value = octopus::Text::BaselinePolicy::SET;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "CENTER") {
-                value = octopus::Text::BaselinePolicy::CENTER;
-                return Error::OK; 
-            }
-            break;
-        case 14:
-            if (buffer == "OFFSET_BEARING") {
-                value = octopus::Text::BaselinePolicy::OFFSET_BEARING;
-                return Error::OK; 
-            }
-            break;
-        case 15:
-            if (buffer == "OFFSET_ASCENDER") {
-                value = octopus::Text::BaselinePolicy::OFFSET_ASCENDER;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "SET");
+    if (curDistance < bestDistance) value = octopus::Text::BaselinePolicy::SET, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "CENTER");
+    if (curDistance < bestDistance) value = octopus::Text::BaselinePolicy::CENTER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "OFFSET_ASCENDER");
+    if (curDistance < bestDistance) value = octopus::Text::BaselinePolicy::OFFSET_ASCENDER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "OFFSET_BEARING");
+    if (curDistance < bestDistance) value = octopus::Text::BaselinePolicy::OFFSET_BEARING, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusTextHorizontalAlign(octopus::Text::HorizontalAlign &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            if (buffer == "LEFT") {
-                value = octopus::Text::HorizontalAlign::LEFT;
-                return Error::OK; 
-            }
-            break;
-        case 5:
-            if (buffer == "RIGHT") {
-                value = octopus::Text::HorizontalAlign::RIGHT;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "CENTER") {
-                value = octopus::Text::HorizontalAlign::CENTER;
-                return Error::OK; 
-            }
-            break;
-        case 7:
-            if (buffer == "JUSTIFY") {
-                value = octopus::Text::HorizontalAlign::JUSTIFY;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "LEFT");
+    if (curDistance < bestDistance) value = octopus::Text::HorizontalAlign::LEFT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "CENTER");
+    if (curDistance < bestDistance) value = octopus::Text::HorizontalAlign::CENTER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "RIGHT");
+    if (curDistance < bestDistance) value = octopus::Text::HorizontalAlign::RIGHT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "JUSTIFY");
+    if (curDistance < bestDistance) value = octopus::Text::HorizontalAlign::JUSTIFY, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusTextFrameMode(octopus::TextFrame::Mode &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 5:
-            if (buffer == "FIXED") {
-                value = octopus::TextFrame::Mode::FIXED;
-                return Error::OK; 
-            }
-            break;
-        case 10:
-            if (buffer == "AUTO_WIDTH") {
-                value = octopus::TextFrame::Mode::AUTO_WIDTH;
-                return Error::OK; 
-            }
-            break;
-        case 11:
-            if (buffer == "AUTO_HEIGHT") {
-                value = octopus::TextFrame::Mode::AUTO_HEIGHT;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "AUTO_WIDTH");
+    if (curDistance < bestDistance) value = octopus::TextFrame::Mode::AUTO_WIDTH, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "AUTO_HEIGHT");
+    if (curDistance < bestDistance) value = octopus::TextFrame::Mode::AUTO_HEIGHT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FIXED");
+    if (curDistance < bestDistance) value = octopus::TextFrame::Mode::FIXED, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusDimensions(octopus::Dimensions &value) {
@@ -3418,63 +2880,31 @@ Parser::Error::Type Parser::parseNonstdOptionalOctopusTextFrame(nonstd::optional
 Parser::Error::Type Parser::parseOctopusTextOverflowPolicy(octopus::Text::OverflowPolicy &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 7) {
-        switch (buffer[7]) {
-            case 'A':
-                if (buffer == "EXTEND_ALL") {
-                    value = octopus::Text::OverflowPolicy::EXTEND_ALL;
-                    return Error::OK; 
-                }
-                break;
-            case 'F':
-                if (buffer == "NO_OVERFLOW") {
-                    value = octopus::Text::OverflowPolicy::NO_OVERFLOW;
-                    return Error::OK; 
-                }
-                break;
-            case 'L':
-                if (buffer == "EXTEND_LINE") {
-                    value = octopus::Text::OverflowPolicy::EXTEND_LINE;
-                    return Error::OK; 
-                }
-                break;
-            case 'N':
-                if (buffer == "CLIP_LINE") {
-                    value = octopus::Text::OverflowPolicy::CLIP_LINE;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "NO_OVERFLOW");
+    if (curDistance < bestDistance) value = octopus::Text::OverflowPolicy::NO_OVERFLOW, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "CLIP_LINE");
+    if (curDistance < bestDistance) value = octopus::Text::OverflowPolicy::CLIP_LINE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EXTEND_LINE");
+    if (curDistance < bestDistance) value = octopus::Text::OverflowPolicy::EXTEND_LINE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EXTEND_ALL");
+    if (curDistance < bestDistance) value = octopus::Text::OverflowPolicy::EXTEND_ALL, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusTextVerticalAlign(octopus::Text::VerticalAlign &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'B':
-                if (buffer == "BOTTOM") {
-                    value = octopus::Text::VerticalAlign::BOTTOM;
-                    return Error::OK; 
-                }
-                break;
-            case 'C':
-                if (buffer == "CENTER") {
-                    value = octopus::Text::VerticalAlign::CENTER;
-                    return Error::OK; 
-                }
-                break;
-            case 'T':
-                if (buffer == "TOP") {
-                    value = octopus::Text::VerticalAlign::TOP;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "TOP");
+    if (curDistance < bestDistance) value = octopus::Text::VerticalAlign::TOP, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "CENTER");
+    if (curDistance < bestDistance) value = octopus::Text::VerticalAlign::CENTER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "BOTTOM");
+    if (curDistance < bestDistance) value = octopus::Text::VerticalAlign::BOTTOM, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusText(octopus::Text &value) {
@@ -3836,89 +3266,31 @@ Parser::Error::Type Parser::parseOctopusLayerChangeValues(octopus::LayerChange::
 Parser::Error::Type Parser::parseOctopusLayerChangeSubject(octopus::LayerChange::Subject &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 1) {
-        switch (buffer[1]) {
-            case 'A':
-                if (buffer == "LAYER") {
-                    value = octopus::LayerChange::Subject::LAYER;
-                    return Error::OK; 
-                }
-                break;
-            case 'E':
-                if (buffer == "TEXT") {
-                    value = octopus::LayerChange::Subject::TEXT;
-                    return Error::OK; 
-                }
-                break;
-            case 'F':
-                switch (buffer.size()) {
-                    case 6:
-                        if (buffer == "EFFECT") {
-                            value = octopus::LayerChange::Subject::EFFECT;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 11:
-                        if (buffer == "EFFECT_FILL") {
-                            value = octopus::LayerChange::Subject::EFFECT_FILL;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 18:
-                        if (buffer == "EFFECT_FILL_FILTER") {
-                            value = octopus::LayerChange::Subject::EFFECT_FILL_FILTER;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'H':
-                if (buffer == "SHAPE") {
-                    value = octopus::LayerChange::Subject::SHAPE;
-                    return Error::OK; 
-                }
-                break;
-            case 'I':
-                switch (buffer.size()) {
-                    case 4:
-                        if (buffer == "FILL") {
-                            value = octopus::LayerChange::Subject::FILL;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 11:
-                        if (buffer == "FILL_FILTER") {
-                            value = octopus::LayerChange::Subject::FILL_FILTER;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-            case 'T':
-                switch (buffer.size()) {
-                    case 6:
-                        if (buffer == "STROKE") {
-                            value = octopus::LayerChange::Subject::STROKE;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 11:
-                        if (buffer == "STROKE_FILL") {
-                            value = octopus::LayerChange::Subject::STROKE_FILL;
-                            return Error::OK; 
-                        }
-                        break;
-                    case 18:
-                        if (buffer == "STROKE_FILL_FILTER") {
-                            value = octopus::LayerChange::Subject::STROKE_FILL_FILTER;
-                            return Error::OK; 
-                        }
-                        break;
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "LAYER");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::LAYER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SHAPE");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::SHAPE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "TEXT");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::TEXT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FILL");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STROKE");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::STROKE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STROKE_FILL");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::STROKE_FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EFFECT");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::EFFECT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EFFECT_FILL");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::EFFECT_FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FILL_FILTER");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::FILL_FILTER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STROKE_FILL_FILTER");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::STROKE_FILL_FILTER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EFFECT_FILL_FILTER");
+    if (curDistance < bestDistance) value = octopus::LayerChange::Subject::EFFECT_FILL_FILTER, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusLayerChange(octopus::LayerChange &value) {
@@ -4058,49 +3430,21 @@ Parser::Error::Type Parser::parseNonstdOptionalStdVectorOctopusOverride(nonstd::
 Parser::Error::Type Parser::parseOctopusLayerType(octopus::Layer::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 4:
-            if (buffer == "TEXT") {
-                value = octopus::Layer::Type::TEXT;
-                return Error::OK; 
-            }
-            break;
-        case 5:
-            switch (buffer[0]) {
-                case 'G':
-                    if (buffer == "GROUP") {
-                        value = octopus::Layer::Type::GROUP;
-                        return Error::OK; 
-                    }
-                    break;
-                case 'S':
-                    if (buffer == "SHAPE") {
-                        value = octopus::Layer::Type::SHAPE;
-                        return Error::OK; 
-                    }
-                    break;
-            }
-            break;
-        case 10:
-            if (buffer == "MASK_GROUP") {
-                value = octopus::Layer::Type::MASK_GROUP;
-                return Error::OK; 
-            }
-            break;
-        case 18:
-            if (buffer == "COMPONENT_INSTANCE") {
-                value = octopus::Layer::Type::COMPONENT_INSTANCE;
-                return Error::OK; 
-            }
-            break;
-        case 19:
-            if (buffer == "COMPONENT_REFERENCE") {
-                value = octopus::Layer::Type::COMPONENT_REFERENCE;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "SHAPE");
+    if (curDistance < bestDistance) value = octopus::Layer::Type::SHAPE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "TEXT");
+    if (curDistance < bestDistance) value = octopus::Layer::Type::TEXT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "GROUP");
+    if (curDistance < bestDistance) value = octopus::Layer::Type::GROUP, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "MASK_GROUP");
+    if (curDistance < bestDistance) value = octopus::Layer::Type::MASK_GROUP, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COMPONENT_REFERENCE");
+    if (curDistance < bestDistance) value = octopus::Layer::Type::COMPONENT_REFERENCE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COMPONENT_INSTANCE");
+    if (curDistance < bestDistance) value = octopus::Layer::Type::COMPONENT_INSTANCE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusLayer(octopus::Layer &value) {
@@ -4271,11 +3615,11 @@ Parser::Error::Type Parser::parseNonstdOptionalPtrOctopusLayer(nonstd::optional_
 Parser::Error::Type Parser::parseOctopusOctopusType(octopus::Octopus::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer == "OCTOPUS_COMPONENT") {
-        value = octopus::Octopus::Type::OCTOPUS_COMPONENT;
-        return Error::OK; 
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "OCTOPUS_COMPONENT");
+    if (curDistance < bestDistance) value = octopus::Octopus::Type::OCTOPUS_COMPONENT, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 Parser::Error::Type Parser::parseOctopusOctopus(octopus::Octopus &value) {

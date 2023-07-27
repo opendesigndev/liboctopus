@@ -276,18 +276,25 @@ bool validateLayerChange(const Layer &layer, const LayerChange &layerChange, std
     return true;
 }
 
-bool validate(const Layer &layer, std::set<std::string> &layerIdSet, std::string *errorMessagePtr, const void **datapointPtr) {
+std::string randomLayerId() {
+    std::string id;
+    for (int i = 0; i < 16; ++i)
+        id.push_back("0123456789abcdefghijklmnopqrstuvwxyz----"[rand()%36]);
+    return id;
+}
+
+bool validate(Layer &layer, std::set<std::string> &layerIdSet, std::string *errorMessagePtr, const void **datapointPtr) {
     if (layer.id.empty())
         return validationError(&layer.id, "Layer id must not be empty", errorMessagePtr, datapointPtr);
     if (!validateLayerId(layer.id))
-        return validationError(&layer.id, "Invalid format of layer id: "+layer.id, errorMessagePtr, datapointPtr);
+        layer.id = randomLayerId();
     if (!layerIdSet.insert(layer.id).second)
         return validationError(&layer.id, "Duplicate layer id: "+layer.id, errorMessagePtr, datapointPtr);
     if (!(layer.opacity >= 0 && layer.opacity <= 1))
-        return validationError(&layer.opacity, "Invalid opacity of layer "+layer.id, errorMessagePtr, datapointPtr);
+        layer.opacity = 1;
     if (layer.featureScale.has_value()) {
         if (layer.featureScale.value() <= 0)
-            return validationError(&layer.opacity, "Non-positive featureScale of layer "+layer.id, errorMessagePtr, datapointPtr);
+            layer.featureScale = 1;
     }
     switch (layer.type) {
         case Layer::Type::SHAPE:
@@ -302,18 +309,20 @@ bool validate(const Layer &layer, std::set<std::string> &layerIdSet, std::string
             if (!validateText(layer, layer.text.value(), errorMessagePtr, datapointPtr))
                 return false;
             if (layer.blendMode == BlendMode::PASS_THROUGH)
-                return validationError(&layer.blendMode, "PASS_THROUGH blendMode is invalid for TEXT layer "+layer.id, errorMessagePtr, datapointPtr);
+                layer.blendMode = BlendMode::NORMAL;
             break;
         case Layer::Type::GROUP:
             break;
         case Layer::Type::MASK_GROUP:
-            if (!layer.mask.has_value())
-                return validationError(&layer.mask, "Missing mask in MASK_GROUP layer "+layer.id, errorMessagePtr, datapointPtr);
+            if (!layer.mask.has_value()) {
+                layer.type = Layer::Type::GROUP;
+                break;
+            }
             if (!layer.maskBasis.has_value())
-                return validationError(&layer.maskBasis, "Missing maskBasis in MASK_GROUP layer "+layer.id, errorMessagePtr, datapointPtr);
+                layer.maskBasis = MaskBasis::BODY;
             if ((layer.maskBasis.value() == MaskBasis::BODY_EMBED || layer.maskBasis.value() == MaskBasis::FILL_EMBED) && layer.maskChannels.has_value()) {
                 if (!(layer.maskChannels.value()[0] == 0 && layer.maskChannels.value()[1] == 0 && layer.maskChannels.value()[2] == 0 && layer.maskChannels.value()[3] == 1 && layer.maskChannels.value()[4] == 0))
-                    return validationError(&layer.maskChannels, "MASK_GROUP layer "+layer.id+" has embedded maskBasis but non-default maskChannels", errorMessagePtr, datapointPtr);
+                    layer.maskChannels = { };
             }
             break;
         case Layer::Type::COMPONENT_REFERENCE:
@@ -333,14 +342,14 @@ bool validate(const Layer &layer, std::set<std::string> &layerIdSet, std::string
             }
             break;
     }
-    if (
+    /*if (
         (layer.type != Layer::Type::SHAPE && layer.shape.has_value()) ||
         (layer.type != Layer::Type::TEXT && layer.text.has_value()) ||
         (layer.type != Layer::Type::MASK_GROUP && (layer.mask.has_value() || layer.maskBasis.has_value() || layer.maskChannels.has_value())) ||
         ((layer.type != Layer::Type::GROUP && layer.type != Layer::Type::MASK_GROUP && layer.type != Layer::Type::COMPONENT_INSTANCE) && layer.layers.has_value()) ||
         ((layer.type != Layer::Type::COMPONENT_REFERENCE && layer.type != Layer::Type::COMPONENT_INSTANCE) && (layer.componentId.has_value() || layer.overrides.has_value()))
     )
-        return validationError(&layer, "Layer "+layer.id+" contains data that does not match its type", errorMessagePtr, datapointPtr);
+        return validationError(&layer, "Layer "+layer.id+" contains data that does not match its type", errorMessagePtr, datapointPtr);*/
     for (const Effect &effect : layer.effects) {
         if (!validateEffect(layer, effect, errorMessagePtr, datapointPtr))
             return false;
@@ -350,7 +359,7 @@ bool validate(const Layer &layer, std::set<std::string> &layerIdSet, std::string
             return false;
     }
     if (layer.layers.has_value()) {
-        for (const Layer &child : layer.layers.value()) {
+        for (Layer &child : layer.layers.value()) {
             if (!validate(child, layerIdSet, errorMessagePtr, datapointPtr))
                 return false;
         }
@@ -358,7 +367,7 @@ bool validate(const Layer &layer, std::set<std::string> &layerIdSet, std::string
     return true;
 }
 
-bool validate(const Octopus &document, std::set<std::string> &layerIdSet, std::string *errorMessagePtr, const void **datapointPtr) {
+bool validate(Octopus &document, std::set<std::string> &layerIdSet, std::string *errorMessagePtr, const void **datapointPtr) {
     if (document.type != Octopus::Type::OCTOPUS_COMPONENT)
         return validationError(&document.type, "Type must be OCTOPUS_COMPONENT", errorMessagePtr, datapointPtr);
     if (document.dimensions.has_value()) {

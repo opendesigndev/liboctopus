@@ -5,6 +5,34 @@
 #include <cstdlib>
 #include "parser.h"
 
+
+
+#include <vector>
+#include <cctype>
+#include <algorithm>
+
+inline int levenshtein(const std::string &a, const std::string &b) {
+    size_t n = b.size()+1, m = 1, k = 0;
+    while (m <= n)
+        m <<= 1;
+    std::vector<int> d(m--);
+    d[k] = 0;
+    for (size_t i = 0; i < b.size(); ++i)
+        ++k, d[k] = d[k-1]+1;
+    for (size_t i = 0; i < a.size(); ++i) {
+        int aEmpty = 1;
+        ++k, d[k&m] = d[(k-n)&m]+aEmpty;
+        for (size_t j = 0; j < b.size(); ++j) {
+            ++k, d[k&m] = std::min(std::min(
+                d[(k-1)&m]+1,
+                d[(k-n)&m]+aEmpty),
+                d[(k-n-1)&m]+!(toupper(a[i]) == toupper(b[j]))
+            );
+        }
+    }
+    return d[k&m];
+}
+
 #ifndef JSON_CPP_MAX_INTEGER
 #define JSON_CPP_MAX_INTEGER(T) ((T) ~(((T) ~(T) 0 <= (T) 0 ? -2 : 0)*((T) 1<<(8*sizeof(T)-2))))
 #endif
@@ -117,50 +145,6 @@ bool ManifestParser::readHexQuad(int &value) {
     );
 }
 
-ManifestParser::Error::Type ManifestParser::unescape(char *codepoints) {
-    switch (++cur, *cur++) {
-        case '\0':
-            --cur;
-            return Error::UNEXPECTED_END_OF_FILE;
-        case 'B': case 'b': codepoints[0] = '\b'; break;
-        case 'F': case 'f': codepoints[0] = '\f'; break;
-        case 'N': case 'n': codepoints[0] = '\n'; break;
-        case 'R': case 'r': codepoints[0] = '\r'; break;
-        case 'T': case 't': codepoints[0] = '\t'; break;
-        case 'U': case 'u': {
-            unsigned long cp;
-            int wc;
-            if (!readHexQuad(wc))
-                return Error::JSON_SYNTAX_ERROR;
-            if ((wc&0xfc00) == 0xd800) {
-                if (!(cur[0] == '\\' && (cur[1] == 'u' || cur[1] == 'U')))
-                    return Error::UTF16_ENCODING_ERROR;
-                cp = (unsigned long) ((wc&0x03ff)<<10);
-                cur += 2;
-                if (!readHexQuad(wc))
-                    return Error::JSON_SYNTAX_ERROR;
-                if ((wc&0xfc00) != 0xdc00)
-                    return Error::UTF16_ENCODING_ERROR;
-                cp = 0x010000+(cp|(unsigned long) (wc&0x03ff));
-            } else
-                cp = (unsigned long) wc;
-            if (cp&0xffffff80) {
-                int len;
-                for (len = 1; cp>>(5*len+1) && len < 6; ++len);
-                codepoints[0] = (char) (0xff<<(8-len)|cp>>6*(len-1));
-                for (int i = 1; i < len; ++i)
-                    *++codepoints = (char) (0x80|(cp>>6*(len-i-1)&0x3f));
-            } else
-                codepoints[0] = (char) cp;
-            break;
-        }
-        default:
-            codepoints[0] = cur[-1];
-    }
-    codepoints[1] = '\0';
-    return Error::OK;
-}
-
 bool ManifestParser::isAlphanumeric(char c) {
     switch (c) {
         case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I':
@@ -227,10 +211,46 @@ ManifestParser::Error::Type ManifestParser::parseStdString(std::string &value) {
     value.clear();
     while (*cur != '"') {
         if (*cur == '\\') {
-            char utfBuffer[8];
-            if (Error error = unescape(utfBuffer))
-                return error;
-            value += utfBuffer;
+            ++cur;
+            switch (*cur++) {
+                case '\0':
+                    --cur;
+                    return Error::UNEXPECTED_END_OF_FILE;
+                case 'B': case 'b': value.push_back('\b'); break;
+                case 'F': case 'f': value.push_back('\f'); break;
+                case 'N': case 'n': value.push_back('\n'); break;
+                case 'R': case 'r': value.push_back('\r'); break;
+                case 'T': case 't': value.push_back('\t'); break;
+                case 'U': case 'u': {
+                    unsigned long cp;
+                    int wc;
+                    if (!readHexQuad(wc))
+                        return Error::JSON_SYNTAX_ERROR;
+                    if ((wc&0xfc00) == 0xd800) {
+                        if (!(cur[0] == '\\' && (cur[1] == 'u' || cur[1] == 'U')))
+                            return Error::UTF16_ENCODING_ERROR;
+                        cp = (unsigned long) ((wc&0x03ff)<<10);
+                        cur += 2;
+                        if (!readHexQuad(wc))
+                            return Error::JSON_SYNTAX_ERROR;
+                        if ((wc&0xfc00) != 0xdc00)
+                            return Error::UTF16_ENCODING_ERROR;
+                        cp = 0x010000+(cp|(unsigned long) (wc&0x03ff));
+                    } else
+                        cp = (unsigned long) wc;
+                    if (cp&0xffffff80) {
+                        int len;
+                        for (len = 1; cp>>(5*len+1) && len < 6; ++len);
+                        value.push_back((char) (0xff<<(8-len)|cp>>6*(len-1)));
+                        for (int i = 1; i < len; ++i)
+                            value.push_back((char) (0x80|(cp>>6*(len-i-1)&0x3f)));
+                    } else
+                        value.push_back((char) cp);
+                    break;
+                }
+                default:
+                    value.push_back(cur[-1]);
+            }
             continue;
         }
         if (!*cur)
@@ -254,23 +274,13 @@ ManifestParser::Error::Type ManifestParser::parseNonstdOptionalStdString(nonstd:
 ManifestParser::Error::Type ManifestParser::parseOctopusResourceLocationType(octopus::ResourceLocation::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 0) {
-        switch (buffer[0]) {
-            case 'E':
-                if (buffer == "EXTERNAL") {
-                    value = octopus::ResourceLocation::Type::EXTERNAL;
-                    return Error::OK; 
-                }
-                break;
-            case 'R':
-                if (buffer == "RELATIVE") {
-                    value = octopus::ResourceLocation::Type::RELATIVE;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "RELATIVE");
+    if (curDistance < bestDistance) value = octopus::ResourceLocation::Type::RELATIVE, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "EXTERNAL");
+    if (curDistance < bestDistance) value = octopus::ResourceLocation::Type::EXTERNAL, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusResourceLocation(octopus::ResourceLocation &value) {
@@ -507,27 +517,15 @@ ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusAssets(non
 ManifestParser::Error::Type ManifestParser::parseOctopusArtifactType(octopus::Artifact::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 6:
-            if (buffer == "SOURCE") {
-                value = octopus::Artifact::Type::SOURCE;
-                return Error::OK; 
-            }
-            break;
-        case 7:
-            if (buffer == "OCTOPUS") {
-                value = octopus::Artifact::Type::OCTOPUS;
-                return Error::OK; 
-            }
-            break;
-        case 16:
-            if (buffer == "OCTOPUS_EXPANDED") {
-                value = octopus::Artifact::Type::OCTOPUS_EXPANDED;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "OCTOPUS");
+    if (curDistance < bestDistance) value = octopus::Artifact::Type::OCTOPUS, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "OCTOPUS_EXPANDED");
+    if (curDistance < bestDistance) value = octopus::Artifact::Type::OCTOPUS_EXPANDED, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "SOURCE");
+    if (curDistance < bestDistance) value = octopus::Artifact::Type::SOURCE, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusArtifact(octopus::Artifact &value) {
@@ -676,33 +674,17 @@ ManifestParser::Error::Type ManifestParser::parseNonstdOptionalDouble(nonstd::op
 ManifestParser::Error::Type ManifestParser::parseOctopusStatusValue(octopus::Status::Value &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 5:
-            if (buffer == "READY") {
-                value = octopus::Status::READY;
-                return Error::OK; 
-            }
-            break;
-        case 6:
-            if (buffer == "FAILED") {
-                value = octopus::Status::FAILED;
-                return Error::OK; 
-            }
-            break;
-        case 7:
-            if (buffer == "PENDING") {
-                value = octopus::Status::PENDING;
-                return Error::OK; 
-            }
-            break;
-        case 10:
-            if (buffer == "PROCESSING") {
-                value = octopus::Status::PROCESSING;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "READY");
+    if (curDistance < bestDistance) value = octopus::Status::READY, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PENDING");
+    if (curDistance < bestDistance) value = octopus::Status::PENDING, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PROCESSING");
+    if (curDistance < bestDistance) value = octopus::Status::PROCESSING, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "FAILED");
+    if (curDistance < bestDistance) value = octopus::Status::FAILED, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusStatus(octopus::Status &value) {
@@ -761,41 +743,19 @@ ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusStatus(non
 ManifestParser::Error::Type ManifestParser::parseOctopusChunkType(octopus::Chunk::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    if (buffer.size() > 6) {
-        switch (buffer[6]) {
-            case 'E':
-                if (buffer == "STYLE_EFFECT") {
-                    value = octopus::Chunk::Type::STYLE_EFFECT;
-                    return Error::OK; 
-                }
-                break;
-            case 'F':
-                if (buffer == "STYLE_FILL") {
-                    value = octopus::Chunk::Type::STYLE_FILL;
-                    return Error::OK; 
-                }
-                break;
-            case 'G':
-                if (buffer == "STYLE_GRID") {
-                    value = octopus::Chunk::Type::STYLE_GRID;
-                    return Error::OK; 
-                }
-                break;
-            case 'L':
-                if (buffer == "STYLE_LAYER") {
-                    value = octopus::Chunk::Type::STYLE_LAYER;
-                    return Error::OK; 
-                }
-                break;
-            case 'T':
-                if (buffer == "STYLE_TEXT") {
-                    value = octopus::Chunk::Type::STYLE_TEXT;
-                    return Error::OK; 
-                }
-                break;
-        }
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "STYLE_LAYER");
+    if (curDistance < bestDistance) value = octopus::Chunk::Type::STYLE_LAYER, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STYLE_FILL");
+    if (curDistance < bestDistance) value = octopus::Chunk::Type::STYLE_FILL, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STYLE_TEXT");
+    if (curDistance < bestDistance) value = octopus::Chunk::Type::STYLE_TEXT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STYLE_EFFECT");
+    if (curDistance < bestDistance) value = octopus::Chunk::Type::STYLE_EFFECT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "STYLE_GRID");
+    if (curDistance < bestDistance) value = octopus::Chunk::Type::STYLE_GRID, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusChunk(octopus::Chunk &value) {
@@ -966,27 +926,15 @@ ManifestParser::Error::Type ManifestParser::parseOctopusBounds(octopus::Bounds &
 ManifestParser::Error::Type ManifestParser::parseOctopusReferenceType(octopus::Reference::Type &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 5:
-            if (buffer == "CHUNK") {
-                value = octopus::Reference::Type::CHUNK;
-                return Error::OK; 
-            }
-            break;
-        case 8:
-            if (buffer == "ARTBOARD") {
-                value = octopus::Reference::Type::ARTBOARD;
-                return Error::OK; 
-            }
-            break;
-        case 9:
-            if (buffer == "COMPONENT") {
-                value = octopus::Reference::Type::COMPONENT;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "CHUNK");
+    if (curDistance < bestDistance) value = octopus::Reference::Type::CHUNK, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "COMPONENT");
+    if (curDistance < bestDistance) value = octopus::Reference::Type::COMPONENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ARTBOARD");
+    if (curDistance < bestDistance) value = octopus::Reference::Type::ARTBOARD, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusReference(octopus::Reference &value) {
@@ -1053,33 +1001,17 @@ ManifestParser::Error::Type ManifestParser::parseNonstdOptionalOctopusReference(
 ManifestParser::Error::Type ManifestParser::parseOctopusComponentRole(octopus::Component::Role &value) {
     if (Error::Type error = parseStdString(buffer))
         return error;
-    switch (buffer.size()) {
-        case 7:
-            if (buffer == "PARTIAL") {
-                value = octopus::Component::Role::PARTIAL;
-                return Error::OK; 
-            }
-            break;
-        case 8:
-            if (buffer == "ARTBOARD") {
-                value = octopus::Component::Role::ARTBOARD;
-                return Error::OK; 
-            }
-            break;
-        case 9:
-            if (buffer == "COMPONENT") {
-                value = octopus::Component::Role::COMPONENT;
-                return Error::OK; 
-            }
-            break;
-        case 10:
-            if (buffer == "PASTEBOARD") {
-                value = octopus::Component::Role::PASTEBOARD;
-                return Error::OK; 
-            }
-            break;
-    }
-    return Error::UNKNOWN_ENUM_VALUE;
+    int curDistance, bestDistance = 0xffff;
+    curDistance = levenshtein(buffer, "COMPONENT");
+    if (curDistance < bestDistance) value = octopus::Component::Role::COMPONENT, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "ARTBOARD");
+    if (curDistance < bestDistance) value = octopus::Component::Role::ARTBOARD, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PASTEBOARD");
+    if (curDistance < bestDistance) value = octopus::Component::Role::PASTEBOARD, bestDistance = curDistance;
+    curDistance = levenshtein(buffer, "PARTIAL");
+    if (curDistance < bestDistance) value = octopus::Component::Role::PARTIAL, bestDistance = curDistance;
+    return Error::OK;
+    return Error::OK;
 }
 
 ManifestParser::Error::Type ManifestParser::parseOctopusComponentSet(octopus::ComponentSet &value) {
